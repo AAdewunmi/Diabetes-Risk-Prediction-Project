@@ -1,0 +1,9 @@
+
+--- Data Visualisation ---
+Outcome distribution plot saved to /reports/outcome_distribution.png
+Pairplot of selected features saved to /reports/pairplot_selected_features.png
+BMI distribution by Outcome (violin plot) saved to /reports/bmi_distribution_by_outcome.png
+Correlation heatmap saved to /reports/correlation_heatmap.png
+
+--- Running data_visualisation.py ---
+--- Finished running data_visualisation.py ---

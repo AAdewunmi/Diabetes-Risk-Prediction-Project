@@ -1,0 +1,6 @@
+Data split into training and testing sets.
+Logistic Regression model trained.
+Trained model saved as models/diabetes_prediction_model.joblib
+
+--- Running model_training.py ---
+--- Finished running model_training.py ---

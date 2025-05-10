@@ -1,0 +1,17 @@
+
+--- Statistical Analysis ---
+
+T-Test on Glucose:
+  T-statistic = -14.600, P-value = 0.000
+
+Mann–Whitney U Test on Insulin:
+  U-statistic = 61926.500, P-value = 0.066
+
+Pearson Correlation (BMI vs. Glucose):
+  r = 0.221, P-value = 0.000
+
+Chi-square Test (Pregnancies_Binned vs. Outcome):
+  Chi2 = 47.981, P-value = 0.000, DoF = 4
+
+--- Running statistical_analysis.py ---
+--- Finished running statistical_analysis.py ---
