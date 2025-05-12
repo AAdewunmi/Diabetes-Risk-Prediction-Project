@@ -108,6 +108,53 @@ diabetes_risk_prediction_project/
     python main.py
     ```
 
+## Workflow
+
+The project follows a structured and modular workflow for end-to-end machine learning pipeline development:
+
+### 1. **Data Loading**
+
+* Source: [Kaggle – Diabetes Health Indicators Dataset](https://www.kaggle.com/datasets/aaron7sun/diabetes-health-indicators-dataset)
+* Loaded using `pandas` via `src/data_loader.py`.
+
+### 2. **Data Preprocessing**
+
+* Missing values removed or imputed.
+* Categorical variables encoded using one-hot encoding.
+* Data normalization/standardization where appropriate.
+* Implemented in `src/preprocessing.py`.
+
+### 3. **Exploratory Data Analysis (EDA)**
+
+* Summary statistics, correlation heatmaps, class balance checks.
+* Visualized with `matplotlib` and `seaborn` in `src/visualization.py`.
+
+### 4. **Model Training**
+
+* Split data into training and validation sets.
+* Random Forest Classifier trained with cross-validation.
+* Model saved using `joblib`.
+* Handled in `src/train.py`.
+
+### 5. **Model Evaluation**
+
+* Evaluated using classification report, ROC AUC score, and confusion matrix.
+* Results printed and visualised in `src/evaluate.py`.
+
+### 6. **Feature Importance Analysis**
+
+* Extracted from trained model.
+* Top features visualized using bar plots.
+* Found in `src/visualization.py`.
+
+### 7. **Example Pipelines**
+
+* `examples/run_pipeline.py`: End-to-end script to execute full pipeline.
+* `examples/visualize_data.py`: Script for generating feature importance visualizations.
+
+### 8. **Presentation**
+
+* `presentation/diabetes_readmission_analysis.pptx`: A professional PowerPoint deck summarizing key insights for stakeholders.
 ## Documentation
 
 -   Each Python file (`.py`) includes docstrings for functions and inline comments to explain the code.
