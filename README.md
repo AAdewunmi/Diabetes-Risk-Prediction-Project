@@ -15,10 +15,17 @@ The project follows a standard data science workflow, with each step implemented
 1.  **Data Loading:** Loads the `diabetes.csv` dataset.
 2.  **Data Preprocessing:** Cleans and prepares the data for analysis.
 3.  **Exploratory Data Analysis (EDA):** Explores the data through summary statistics.
-4.  **Data Visualisation:** Creates informative plots to understand data patterns.
-5.  **Statistical Analysis:** Performs statistical tests to gain insights.
 6.  **Model Training:** Trains a logistic regression model to predict diabetes risk.
 7.  **Model Evaluation:** Assesses the performance of the trained model.
+6.  **Model Explainability & Interpretability:** 
+Use model interpretability tools such as SHAP or LIME to explain the predictions of the machine learning model, especially for sensitive areas like healthcare.
+7.  **Feature Importance Analysis:** 
+
+7.  **Data Science (End-To-End) Pipeline:** 
+
+4.  **Data Visualisation:** Creates informative plots to understand data patterns.
+5.  **Statistical Analysis:** Performs statistical tests to gain insights.
+
 
 You can run all these steps using the `main.py` script.
 
@@ -114,66 +121,65 @@ The project follows a structured and modular workflow for end-to-end machine lea
 ### 1. **Data Loading**
 
 * Source: [Kaggle – Diabetes Health Indicators Dataset](https://www.kaggle.com/datasets/aaron7sun/diabetes-health-indicators-dataset)
-* Loaded using `pandas` via `src/data_loader.py`.
+* Loaded using `pandas` via `src/data_loading.py`.
 
 ### 2. **Data Preprocessing**
 
 * Missing values removed or imputed.
 * Categorical variables encoded using one-hot encoding.
 * Data normalization/standardization where appropriate.
-* Implemented in `src/preprocessing.py`.
+* Implemented in `src/data_preprocessing.py`.
 
 ### 3. **Exploratory Data Analysis (EDA)**
 
-* Summary statistics, correlation heatmaps, class balance checks.
-* Visualized with `matplotlib` and `seaborn` in `src/visualization.py`.
+* Exploratory data analysis (EDA) on a diabetes dataset with `pandas` and `matplotlib` and `seaborn` in `src/data_exploration.py`.
+
+* Extended statistical tests on the diabetes dataset with `pandas`, `scipy` and `numpy` in `src/statistical_analysis.py`.
 
 ### 4. **Model Training**
 
 * Split data into training and validation sets.
 * Random Forest Classifier trained with cross-validation.
 * Model saved using `joblib`.
-* Handled in `src/train.py`.
+* Handled in `src/model_training.py`.
 
 ### 5. **Model Evaluation**
 
 * Evaluated using classification report, ROC AUC score, and confusion matrix.
-* Results printed and visualised in `src/evaluate.py`.
+* Results printed and visualised in `src/model_evaluation.py`.
 
-### 6. **Feature Importance Analysis**
+### 6. **Model Explainability & Interpretability**
+
+#TODO
+
+### 7. **Feature Importance Analysis**
 
 * Extracted from trained model.
 * Top features visualized using bar plots.
-* Found in `src/visualization.py`.
+* Found in `src/data_visualisation.py`.
 
-### 7. **Example Pipelines**
+### 8. **Data Science (End-To-End) Pipeline**
 
-* `examples/run_pipeline.py`: End-to-end script to execute full pipeline.
-* `examples/visualize_data.py`: Script for generating feature importance visualizations.
+#TODO
 
-### 8. **Presentation**
-
-* `presentation/diabetes_readmission_analysis.pptx`: A professional PowerPoint deck summarizing key insights for stakeholders.
-
-## Documentation
+### 9. **Documentation**
 
 -   Each Python file (`.py`) includes docstrings for functions and inline comments to explain the code.
 -   This `README.md` provides an overview of the project.
 -   The `requirements.txt` file lists the necessary Python packages.
 -   The `reports/` directory will contain generated reports and visualizations.
--   The `reports/` directory is intended to contain the `diabetes_readmission_analysis.pptx` presentation (you will need to create this separately).
 
 
-### 9. **Collaboration and Open Source**
+### 10. **Collaboration and Open Source**
 
 * **Invite Collaboration:** Open the project to contributions from others, including data scientists and medical experts, to refine the model and add new features.
 * **Publish the Model:** Consider making the model publicly available for other researchers or healthcare providers to use, after evaluating privacy and ethical concerns.
 
 
-## Contact
+### 11. **Contact**
 If you have questions or suggestions, feel free to reach out or open an issue.
 
 
-## Author
+### 12. **Author**
 
 Adrian Adewunmi – [GitHub](https://github.com/AAdewunmi)
