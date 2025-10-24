@@ -1,0 +1,10 @@
+,dtype,non_null_count,missing_count,pct_missing
+Pregnancies,int64,768,0,0.0
+Glucose,int64,768,0,0.0
+BloodPressure,int64,768,0,0.0
+SkinThickness,int64,768,0,0.0
+Insulin,int64,768,0,0.0
+BMI,float64,768,0,0.0
+DiabetesPedigreeFunction,float64,768,0,0.0
+Age,int64,768,0,0.0
+Outcome,int64,768,0,0.0

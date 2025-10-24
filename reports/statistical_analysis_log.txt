@@ -1,17 +1,7 @@
-
---- Statistical Analysis ---
-
-T-Test on Glucose:
-  T-statistic = -14.600, P-value = 0.000
-
-Mann–Whitney U Test on Insulin:
-  U-statistic = 61926.500, P-value = 0.066
-
-Pearson Correlation (BMI vs. Glucose):
-  r = 0.221, P-value = 0.000
-
-Chi-square Test (Pregnancies_Binned vs. Outcome):
-  Chi2 = 47.981, P-value = 0.000, DoF = 4
+Traceback (most recent call last):
+  File "/Users/adrianadewunmi/VSCODE/Diabetes-Risk-Prediction-Project/src/statistical_analysis.py", line 22, in <module>
+    import statsmodels.api as sm
+ModuleNotFoundError: No module named 'statsmodels'
 
 --- Running statistical_analysis.py ---
---- Finished running statistical_analysis.py ---
+Error running statistical_analysis.py: Command '['python', 'src/statistical_analysis.py']' returned non-zero exit status 1.

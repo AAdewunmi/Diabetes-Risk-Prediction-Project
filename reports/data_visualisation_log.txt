@@ -1,9 +1,12 @@
-
---- Data Visualisation ---
-Outcome distribution plot saved to /reports/outcome_distribution.png
-Pairplot of selected features saved to /reports/pairplot_selected_features.png
-BMI distribution by Outcome (violin plot) saved to /reports/bmi_distribution_by_outcome.png
-Correlation heatmap saved to /reports/correlation_heatmap.png
+INFO: Using categorical units to plot a list of strings that are all parsable as floats or dates. If these strings should be plotted as numbers, cast to the appropriate data type before plotting.
+INFO: Using categorical units to plot a list of strings that are all parsable as floats or dates. If these strings should be plotted as numbers, cast to the appropriate data type before plotting.
+INFO: Saved outcome distribution to reports/outcome_distribution.png
+INFO: Saved correlation heatmap to reports/correlation_heatmap.png
+INFO: Saved pairplot to reports/pairplot.png
+INFO: Using categorical units to plot a list of strings that are all parsable as floats or dates. If these strings should be plotted as numbers, cast to the appropriate data type before plotting.
+INFO: Using categorical units to plot a list of strings that are all parsable as floats or dates. If these strings should be plotted as numbers, cast to the appropriate data type before plotting.
+INFO: Saved violin plot to reports/violin.png
+INFO: No parseable date column found; skipping time-series plot.
 
 --- Running data_visualisation.py ---
 --- Finished running data_visualisation.py ---
