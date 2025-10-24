@@ -1,116 +1,167 @@
+# data_exploration.py
+"""
+Exploratory Data Analysis utilities for the Diabetes Risk Prediction Project.
+
+Functions:
+- explore_data: high-level orchestrator that writes summary CSVs and basic visualizations.
+- generate_basic_summary: returns data types, non-null counts, and descriptive stats.
+- missing_value_report: returns missingness per column.
+- detect_time_columns: heuristically finds possible date/time columns for time-series analysis.
+
+Saves summary artifacts under the `reports/` directory by default.
+"""
+
+from typing import Optional, List, Tuple
+import os
+import logging
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+
+from data_visualisation import (
+    plot_outcome_distribution,
+    plot_correlation_heatmap
+)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def explore_data(df):
+def ensure_reports_dir(path: str) -> None:
+    os.makedirs(path, exist_ok=True)
+
+
+def generate_basic_summary(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Performs exploratory data analysis (EDA) on a diabetes dataset.
+    Generate a table with dtypes, non-null counts and percent missing for each column.
 
-    This function provides a detailed overview of the dataset, including:
-    - Basic information (data types, non-null counts)
-    - Summary statistics
-    - Missing values
-    - Exploratory visualizations such as scatter plots, correlation heatmaps,
-      and box plots.
+    Returns:
+        pandas.DataFrame: summary table
+    """
+    summary = pd.DataFrame({
+        "dtype": df.dtypes.astype(str),
+        "non_null_count": df.notnull().sum(),
+        "missing_count": df.isnull().sum(),
+        "pct_missing": (df.isnull().mean() * 100).round(2)
+    })
+    return summary
+
+
+def missing_value_report(df: pd.DataFrame, output_path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Compute and optionally save missingness report.
 
     Args:
-        df (pandas.DataFrame): The input DataFrame containing the diabetes
-            dataset.
-    Returns:
-        None
+        df: input DataFrame
+        output_path: where to save CSV (optional)
 
-    Example:
-        df = pd.read_csv('path_to_diabetes_data.csv')
-        explore_data(df)
+    Returns:
+        pd.DataFrame: missingness report
     """
-    if df is None:
-        print("No data provided.")
+    report = generate_basic_summary(df)
+    if output_path:
+        report.to_csv(output_path)
+        logging.info("Saved missing value report to %s", output_path)
+    return report
+
+
+def detect_time_columns(df: pd.DataFrame) -> List[str]:
+    """
+    Heuristically detect columns that look like datetime columns.
+
+    Looks for common names and attempts to parse dtype.
+
+    Returns:
+        list of candidate datetime column names (may be empty)
+    """
+    possible_names = {"date", "datetime", "admission_date", "discharge_date", "visit_date", "timestamp"}
+    found = [c for c in df.columns if c.lower() in possible_names]
+    # Also detect columns that parse to datetime
+    for c in df.columns:
+        if c in found:
+            continue
+        if df[c].dtype == object:
+            try:
+                _ = pd.to_datetime(df[c], errors="coerce")
+                if _.notna().sum() / max(1, len(df)) > 0.5:
+                    found.append(c)
+            except Exception:
+                pass
+    return found
+
+
+def explore_data(df: pd.DataFrame, output_dir: str = "reports") -> None:
+    """
+    High-level EDA orchestration. Produces:
+      - basic info printed
+      - saved CSVs for summary and missingness
+      - some default visualizations saved under reports/
+
+    Args:
+        df: DataFrame to analyze
+        output_dir: directory where CSVs/plots are saved
+    """
+    ensure_reports_dir(output_dir)
+
+    if df is None or df.shape[0] == 0:
+        logging.error("No data provided to explore_data.")
         return
 
-    # Display basic information about the dataset
-    print("\n--- Basic Information ---")
-    df.info()  # Display data types and non-null counts
+    # 1. Basic info & summary
+    logging.info("Data shape: %s", df.shape)
+    summary = generate_basic_summary(df)
+    summary_csv = os.path.join(output_dir, "eda_summary.csv")
+    summary.to_csv(summary_csv)
+    logging.info("Saved dataset summary to %s", summary_csv)
 
-    # Display summary statistics of the dataset
-    print("\n--- Summary Statistics ---")
-    print(df.describe())  # Display statistical summary for numerical columns
+    # 2. Missingness
+    missing_csv = os.path.join(output_dir, "eda_missingness.csv")
+    missing_value_report(df, missing_csv)
 
-    # Check for missing values in the dataset
-    print("\n--- Missing Values ---")
-    # Show the count of missing values for each column
-    print(df.isnull().sum())
+    # 3. Target distribution (if 'Outcome' or 'readmitted' present)
+    target_cols = [c for c in ("Outcome", "readmitted") if c in df.columns]
+    if target_cols:
+        target = target_cols[0]
+        plot_outcome_distribution(df, target=target, output_path=os.path.join(output_dir, "outcome_distribution.png"))
+    else:
+        logging.info("No target column ('Outcome' or 'readmitted') found; skipping outcome distribution plot.")
 
-    # Exploratory visualizations and insights
-    print("\n--- Exploratory Visualizations and Insights ---")
+    # 4. Correlation heatmap of numeric columns
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if len(num_cols) >= 2:
+        corr_path = os.path.join(output_dir, "correlation_heatmap.png")
+        plot_correlation_heatmap(df[num_cols], output_path=corr_path)
+    else:
+        logging.info("Not enough numeric columns for correlation heatmap.")
 
-    # 1. Glucose vs. Age scatter plot, colored by Outcome (Diabetes diagnosis)
-    plt.figure(figsize=(10, 6))
-    sns.scatterplot(x='Age', y='Glucose', hue='Outcome', data=df)
-    plt.title('Glucose Level vs. Age by Diabetes Outcome')
-    plt.xlabel('Age')
-    plt.ylabel('Glucose Level')
-    plt.savefig('reports/eda_glucose_vs_age_outcome.png')
-    # Close the plot to avoid display in Jupyter notebooks or
-    # interactive environments
-    plt.close()
-    print(
-        "EDA: Glucose vs. Age by Outcome plot saved to "
-        "/reports/eda_glucose_vs_age_outcome.png"
-    )
-
-    # 2. Correlation heatmap of BMI, Glucose, and BloodPressure
-    correlation_cols = ['BMI', 'Glucose', 'BloodPressure']
-    # Calculate correlation matrix for specified columns
-    corr_matrix = df[correlation_cols].corr()
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(
-        corr_matrix, annot=True, cmap='coolwarm', fmt=".2f"
-    )  # Heatmap with annotation
-    plt.title('Correlation Heatmap of BMI, Glucose, BloodPressure')
-    plt.savefig('reports/eda_correlation_bmi_glucose_bp.png')
-    plt.close()  # Close the plot
-    print(
-        "EDA: Correlation heatmap of BMI, Glucose, BloodPressure saved to "
-        "/reports/eda_correlation_bmi_glucose_bp.png"
-    )
-
-    # 3. Box plot of Insulin levels by Outcome (0: No Diabetes, 1: Diabetes)
-    plt.figure(figsize=(8, 6))
-    sns.boxplot(x='Outcome', y='Insulin', data=df)
-    plt.title('Insulin Distribution by Diabetes Outcome')
-    plt.xlabel('Outcome (0: No Diabetes, 1: Diabetes)')
-    plt.ylabel('Insulin Level')
-    plt.savefig('reports/eda_insulin_by_outcome_boxplot.png')
-    plt.close()  # Close the plot
-    print(
-        "EDA: Insulin distribution by Outcome (boxplot) saved to "
-        "/reports/eda_insulin_by_outcome_boxplot.png"
-    )
+    # 5. Time-series detection
+    time_cols = detect_time_columns(df)
+    if time_cols:
+        logging.info("Detected possible time columns: %s", time_cols)
+        # Save a small sample with parsed datetime for follow-up analysis
+        for c in time_cols:
+            parsed = pd.to_datetime(df[c], errors="coerce")
+            sample = df[[c]].copy()
+            sample[c] = parsed
+            sample_csv = os.path.join(output_dir, f"time_column_sample_{c}.csv")
+            sample.head(200).to_csv(sample_csv, index=False)
+            logging.info("Saved sample parsed dates for %s to %s", c, sample_csv)
+    else:
+        logging.info("No obvious time-series columns detected.")
 
 
-if __name__ == '__main__':
-    """
-    The entry point of the script. It attempts to load the diabetes dataset
-    from a CSV file located in the './data' directory. If successful, it
-    calls the explore_data() function to perform exploratory data analysis.
-    If the dataset file is not found, it prints an error message.
-    This script is designed to be run as a standalone program.
-    It loads the diabetes dataset into a pandas DataFrame from a CSV file,
-    and then performs exploratory data analysis using the
-    explore_data() function.
+if __name__ == "__main__":
+    # Example usage: python data_exploration.py
+    import argparse
 
-    Usage:
-        Run this script after ensuring the 'diabetes.csv' file
-        is located in the './data' directory.
-    """
+    parser = argparse.ArgumentParser(description="Run EDA for diabetes dataset and save reports.")
+    parser.add_argument("--data", type=str, default="./data/diabetes.csv", help="Path to CSV dataset")
+    parser.add_argument("--out", type=str, default="reports", help="Output reports directory")
+    args = parser.parse_args()
+
     try:
-        # Load the diabetes dataset into a pandas DataFrame
-        exploration_data = pd.read_csv('./data/diabetes.csv')
-
-        # Perform exploratory data analysis (EDA) on the loaded dataset
-        explore_data(exploration_data)
-
+        df = pd.read_csv(args.data)
     except FileNotFoundError:
-        # Handle the case when the dataset file is not found
-        print("Please ensure 'diabetes.csv' is in the data directory.")
+        logging.error("File not found: %s", args.data)
+        raise
+
+    explore_data(df, output_dir=args.out)
