@@ -112,6 +112,31 @@ diabetes_risk_prediction_project/
     ```bash
     python main.py
     ```
+6. ## Usage & Executable Scripts
+
+````markdown
+All analysis scripts are executable Python scripts and can be run from the repository root.  
+They read the dataset from `./data/diabetes.csv` (change `--data` if your file is elsewhere) and write results (plots, CSV summaries, model artifacts) to the `reports/` directory.
+
+### Example commands
+```bash
+# Run exploratory data analysis (summary CSVs + a few plots)
+python src/data_exploration.py --data ./data/diabetes.csv --out reports
+
+# Run advanced statistical tests and models (prints output; saves objects if applicable)
+python src/statistical_analysis.py --data ./data/diabetes.csv --out reports
+
+# Create visualizations (pairplots, heatmaps, time-series if present)
+python src/data_visualisation.py --data ./data/diabetes.csv --out reports
+````
+
+### Output location
+
+All generated files (PNG images, CSV reports, and any saved model files) are stored under:
+
+* `reports/` (relative to the repository root)
+
+If `reports/` does not exist the scripts will create it automatically when run.
 
 
 ## Workflow
