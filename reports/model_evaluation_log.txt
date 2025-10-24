@@ -4,7 +4,7 @@ Loaded trained model from: models/diabetes_prediction_model.joblib
 --- Model Evaluation ---
 Accuracy: 0.7143
 Accuracy represents the proportion of correctly classified instances out of the total instances in the test set.
-In this case, the model correctly predicted the diabetes outcome for 71.43% of the patients in the test set.
+In this case, the model correctly predicted the diabetes outcome for 71.43% of the patients in the test  set.
 
 Classification Report:
               precision    recall  f1-score   support
@@ -27,7 +27,8 @@ Confusion matrix plot saved to: reports/confusion_matrix.png
 Confusion Matrix Interpretation:
   - Top-left (True Negatives): Correctly predicted non-diabetic patients.
   - Top-right (False Positives): Non-diabetic patients incorrectly predicted as diabetic.
-  - Bottom-left (False Negatives): Diabetic patients incorrectly predicted as non-diabetic.
+  - Bottom-left (False Negatives): Diabetic patients
+    incorrectly predicted as non-diabetic.
   - Bottom-right (True Positives): Correctly predicted diabetic patients.
 
 --- Running model_evaluation.py ---
