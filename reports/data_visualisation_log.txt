@@ -8,5 +8,5 @@ INFO: Using categorical units to plot a list of strings that are all parsable as
 INFO: Saved violin plot to reports/violin.png
 INFO: No parseable date column found; skipping time-series plot.
 
---- Running data_visualisation.py ---
---- Finished running data_visualisation.py ---
+--- Running data_visualisation.py  ---
+--- Finished running data_visualisation.py ✅ ---

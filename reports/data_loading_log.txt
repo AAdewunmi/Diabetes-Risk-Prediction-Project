@@ -10,5 +10,5 @@ First 5 rows of the loaded data:
 
 [5 rows x 9 columns]
 
---- Running data_loading.py ---
---- Finished running data_loading.py ---
+--- Running data_loading.py  ---
+--- Finished running data_loading.py ✅ ---

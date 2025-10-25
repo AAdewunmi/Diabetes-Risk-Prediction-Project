@@ -5,6 +5,7 @@ matplotlib
 seaborn
 scipy
 joblib
+statsmodels
 
 # Optional but recommended dependencies:
 imbalanced-learn

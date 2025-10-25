@@ -1,79 +1,102 @@
+"""
+Main pipeline runner for Diabetes Risk Prediction Project.
+
+This script executes all data processing and machine learning steps in sequence,
+saving logs and generated artifacts in the reports/ directory.
+
+Each step is a standalone script inside src/ and may require specific arguments.
+This pipeline ensures correct execution order and consistent output handling.
+
+Usage:
+    python main.py
+
+Outputs:
+    - Logs in reports/
+    - Trained models in reports/models/
+    - Evaluation artifacts in reports/eval/
+    - Explainability visuals in reports/explain/
+
+Author: (Your Name)
+"""
+
 import os
 import subprocess
 
 
-def run_script(script_name):
+def run_script(script_name, args=None):
     """
-    Runs a Python script located in the 'src' directory using subprocess,
-    and saves the output to a log file.
+    Runs a Python script from the src directory using subprocess and saves
+    stdout + stderr into a log file inside reports/.
 
     Args:
-        script_name (str): The name of the Python script file to execute.
+        script_name (str): Python script filename (inside src/)
+        args (list, optional): List of command-line arguments.
 
     Returns:
         None
-
-    Raises:
-        subprocess.CalledProcessError: If the subprocess execution fails.
-        FileNotFoundError: If the specified script file does not exist.
-
-    Example:
-        run_script('data_loading.py')
     """
+    if args is None:
+        args = []
+
     # Ensure the reports directory exists
     if not os.path.exists('reports'):
         os.makedirs('reports')
 
-    # Construct the full path to the script
     script_path = os.path.join('src', script_name)
+    log_file = os.path.join('reports', f"{script_name.replace('.py', '')}_log.txt")
 
-    # Define the log file path
-    log_file = os.path.join(
-        'reports', f"{script_name.replace('.py', '')}_log.txt"
-    )
-
-    # Open log file to capture output
     with open(log_file, 'w') as log:
-        print(f"\n--- Running {script_name} ---", file=log)
+        print(f"\n--- Running {script_name} {' '.join(args)} ---", file=log)
+
         try:
-            # Execute the script using subprocess
-            # and redirect output to the log file
             subprocess.run(
-                ['python', script_path], check=True, stdout=log, stderr=log
+                ['python', script_path] + args,
+                check=True,
+                stdout=log,
+                stderr=log
             )
-            print(f"--- Finished running {script_name} ---", file=log)
+            print(f"--- Finished running {script_name} ✅ ---", file=log)
+
         except subprocess.CalledProcessError as e:
-            # Handle errors during script execution
-            print(f"Error running {script_name}: {e}", file=log)
+            print(f"❌ Error executing {script_name}: {e}", file=log)
         except FileNotFoundError:
-            # Handle case where the script is not found
-            print(f"Error: Script not found at {script_path}", file=log)
+            print(f"❌ Script not found: {script_path}", file=log)
 
 
 def main():
     """
-    Executes a predefined list of Python scripts in sequence
-    and saves the output
-    to log files in the 'reports' folder.
+    Executes the full project pipeline in the correct order, passing required
+    arguments to training/evaluation/explainability modules.
     """
-    scripts_to_run = [
-        'data_loading.py',
-        'data_processing.py',
-        'data_exploration.py',
-        'data_visualisation.py',
-        'statistical_analysis.py',
-        'model_training.py',
-        'model_evaluation.py'
-        'model_explainability_interpretability.py'
+
+    DATA_PATH = "data/diabetes.csv"
+    MODEL_DIR = "reports/models"
+    MODEL_PATH = os.path.join(MODEL_DIR, "best_model_rf.joblib")
+
+    # Ensure model output directories exist
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    # List: (script, argument list)
+    pipeline = [
+        ("data_loading.py", []),
+        ("data_processing.py", []),
+        ("data_exploration.py", []),
+        ("data_visualisation.py", []),
+        ("statistical_analysis.py", []),
+        ("model_training.py",
+         ["--data", DATA_PATH, "--model", "rf", "--out_dir", MODEL_DIR]),
+        ("model_evaluation.py",
+         ["--data", DATA_PATH, "--model_path", MODEL_PATH, "--out_dir", "reports/eval"]),
+        ("model_explainability_interpretability.py",
+         ["--model_path", MODEL_PATH, "--data", DATA_PATH,
+          "--out_dir", "reports/explain", "--method", "all"])
     ]
 
-    for script in scripts_to_run:
-        run_script(script)
+    for script_name, args in pipeline:
+        run_script(script_name, args)
 
-    print("\n--- All scripts executed. Logs are saved in the "
-          "'reports' folder.")
+    print("\n Pipeline completed — logs saved in reports/ ")
 
 
 if __name__ == "__main__":
-    # Entry point of the script
     main()

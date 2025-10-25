@@ -1,35 +1,5 @@
+usage: model_evaluation.py [-h] --model MODEL --data DATA [--out_dir OUT_DIR]
+model_evaluation.py: error: the following arguments are required: --model
 
-Loaded trained model from: models/diabetes_prediction_model.joblib
-
---- Model Evaluation ---
-Accuracy: 0.7143
-Accuracy represents the proportion of correctly classified instances out of the total instances in the test set.
-In this case, the model correctly predicted the diabetes outcome for 71.43% of the patients in the test  set.
-
-Classification Report:
-              precision    recall  f1-score   support
-
- No Diabetes       0.76      0.82      0.79       100
-    Diabetes       0.61      0.52      0.56        54
-
-    accuracy                           0.71       154
-   macro avg       0.68      0.67      0.67       154
-weighted avg       0.71      0.71      0.71       154
-
-
-Breakdown of the classification report:
-  - Precision: Proportion of predicted positive cases that are actually positive.
-  - Recall: Proportion of actual positive cases correctly predicted.
-  - F1-score: Harmonic mean of precision and recall, balancing both metrics.
-  - Support: Number of actual occurrences of each class in the test set.
-Confusion matrix plot saved to: reports/confusion_matrix.png
-
-Confusion Matrix Interpretation:
-  - Top-left (True Negatives): Correctly predicted non-diabetic patients.
-  - Top-right (False Positives): Non-diabetic patients incorrectly predicted as diabetic.
-  - Bottom-left (False Negatives): Diabetic patients
-    incorrectly predicted as non-diabetic.
-  - Bottom-right (True Positives): Correctly predicted diabetic patients.
-
---- Running model_evaluation.py ---
---- Finished running model_evaluation.py ---
+--- Running model_evaluation.py --data data/diabetes.csv --model_path reports/models/best_model_rf.joblib --out_dir reports/eval ---
+❌ Error executing model_evaluation.py: Command '['python', 'src/model_evaluation.py', '--data', 'data/diabetes.csv', '--model_path', 'reports/models/best_model_rf.joblib', '--out_dir', 'reports/eval']' returned non-zero exit status 2.

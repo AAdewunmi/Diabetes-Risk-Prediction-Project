@@ -1,6 +1,19 @@
-Data split into training and testing sets.
-Logistic Regression model trained.
-Trained model saved as models/diabetes_prediction_model.joblib
+INFO: Train/test split: (614, 8) / (154, 8)
+INFO: Starting hyperparameter search with threading backend...
+INFO: Hyperparameter search completed. Best params: {'estimator__n_estimators': 300, 'estimator__min_samples_split': 2, 'estimator__max_depth': 5}
+INFO: Saved best model to reports/models/models/rf_best.joblib
+INFO: Test ROC AUC: 0.8053703703703703 | F1: 0.5625
+INFO: Starting cross-validation scoring with threading backend...
+INFO: Cross-val ROC AUC mean: 0.8365 (std 0.0240)
+INFO: Saved metrics to reports/models/rf_metrics.json
+INFO: Training complete. Results: {'roc_auc': 0.8053703703703703, 'f1': 0.5625, 'cv_roc_auc_mean': 0.8364584206848358, 'cv_roc_auc_std': 0.023964077304912224}
+Fitting 5 folds for each of 3 candidates, totalling 15 fits
+{
+  "roc_auc": 0.8053703703703703,
+  "f1": 0.5625,
+  "cv_roc_auc_mean": 0.8364584206848358,
+  "cv_roc_auc_std": 0.023964077304912224
+}
 
---- Running model_training.py ---
---- Finished running model_training.py ---
+--- Running model_training.py --data data/diabetes.csv --model rf --out_dir reports/models ---
+--- Finished running model_training.py ✅ ---
