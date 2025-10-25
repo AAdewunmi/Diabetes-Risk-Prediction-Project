@@ -1,6 +1,13 @@
 pandas
+numpy
 scikit-learn
 matplotlib
 seaborn
 scipy
 joblib
+
+# Optional but recommended dependencies:
+imbalanced-learn
+shap
+lime
+xgboost
