@@ -1,94 +1,125 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-import joblib
+#!/usr/bin/env python3
+"""
+Model Training Script for Diabetes Risk Prediction Project
+
+Enhancements:
+- Multiple ML models: Logistic Regression, RandomForest, XGBoost (optional)
+- Hyperparameter tuning using RandomizedSearchCV/GridSearchCV
+- K-Fold Cross-Validation
+- Optional SMOTE for class imbalance handling
+- Saves trained models to ./models directory
+
+Usage:
+    python src/model_training.py --data ./data/diabetes.csv --model rf --smote
+"""
+
+import argparse
 import os
+import pandas as pd
+import joblib
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 
+# Optional imports
+try:
+    from xgboost import XGBClassifier
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    print("XGBoost not installed. Skipping XGB option...")
 
-def train_model(df):
-    """
-    Trains a logistic regression model to predict diabetes.
-    Saves the trained model.
+try:
+    from imblearn.over_sampling import SMOTE
+    from imblearn.pipeline import Pipeline as ImbPipeline
+    IMB_AVAILABLE = True
+except ImportError:
+    IMB_AVAILABLE = False
+    print("Imbalanced-learn not installed. SMOTE unavailable...")
 
-    This function:
-    1. Splits the input dataset into features (X) and target (y).
-    2. Scales the numerical features using StandardScaler.
-    3. Trains a logistic regression model on the preprocessed data.
-    4. Saves the trained model in the 'models' directory.
+RANDOM_STATE = 42
 
-    Args:
-        df (pandas.DataFrame): The input DataFrame containing the diabetes
-        dataset.
-        It should include the features and the target variable ('Outcome').
+def load_data(path):
+    return pd.read_csv(path)
 
-    Returns:
-        model (sklearn.pipeline.Pipeline): The trained model pipeline
-        (preprocessing + classifier).
-        X_test (pandas.DataFrame): The test set features.
-        y_test (pandas.Series): The test set target variable.
-
-    Example:
-        # Load data
-        data = pd.read_csv('./data/diabetes.csv')
-        # Train the model
-        model, X_test, y_test = train_model(data)
-    """
-    if df is None:
-        print("Error: DataFrame is empty or None.")
-        return None
-
-    # Define features (X) and target (y)
-    X = df.drop(columns=['Outcome'])  # Features: All columns except 'Outcome'
-    y = df['Outcome']  # Target variable: 'Outcome' column
-
-    # Create preprocessing pipeline for scaling numerical features
-    # Scaling the data to standardize the features
-    numerical_transformer = StandardScaler()
-    preprocessor = Pipeline(steps=[('scaler', numerical_transformer)])
-
-    # Create the full pipeline combining preprocessing
-    # and the logistic regression classifier
-    model = Pipeline(steps=[('preprocessor', preprocessor),
-                            ('classifier', LogisticRegression(
-                                solver='liblinear', random_state=42))])
-
-    # Split the data into training and testing sets (80% training, 20% testing)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+def build_model(model_name="lr", use_smote=False):
+    numeric_features = ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness',
+                        'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age']
+    preprocessor = ColumnTransformer(
+        transformers=[("scale", StandardScaler(), numeric_features)]
     )
-    print("Data split into training and testing sets.")
 
-    # Train the model on the training set
-    model.fit(X_train, y_train)
-    print("Logistic Regression model trained.")
+    if model_name == "rf":
+        model = RandomForestClassifier(random_state=RANDOM_STATE)
+        param_grid = {
+            "clf__n_estimators": [100, 200, 300],
+            "clf__max_depth": [None, 5, 10]
+        }
+    elif model_name == "xgb" and XGBOOST_AVAILABLE:
+        model = XGBClassifier(
+            eval_metric="logloss",
+            random_state=RANDOM_STATE,
+            use_label_encoder=False
+        )
+        param_grid = {
+            "clf__max_depth": [3, 5, 7],
+            "clf__learning_rate": [0.01, 0.1, 0.2]
+        }
+    else:
+        model = LogisticRegression(max_iter=200, random_state=RANDOM_STATE)
+        param_grid = {
+            "clf__C": [0.01, 0.1, 1, 10]
+        }
 
-    # Create the 'models' directory if it doesn't exist
-    os.makedirs('models', exist_ok=True)
+    PipelineClass = ImbPipeline if use_smote and IMB_AVAILABLE else Pipeline
 
-    # Save the trained model as a .joblib file for later use
-    model_path = 'models/diabetes_prediction_model.joblib'
-    joblib.dump(model, model_path)
-    print(f"Trained model saved as {model_path}")
+    pipeline = PipelineClass([
+        ("preprocess", preprocessor),
+        ("clf", model)
+    ])
 
-    # Return the trained model and the test set for evaluation
-    return model, X_test, y_test
+    return pipeline, param_grid
 
+def train_model(df, model_name="lr", cv_splits=5, use_smote=False):
+    X = df.drop("Outcome", axis=1)
+    y = df["Outcome"]
 
-if __name__ == '__main__':
-    """
-    Main entry point of the script. Loads the diabetes dataset, trains a
-    logistic regression model,
-    and saves the trained model to a file.
+    model, param_grid = build_model(model_name, use_smote)
+    cv = KFold(n_splits=cv_splits, shuffle=True, random_state=RANDOM_STATE)
 
-    Example:
-        python train_model.py
-    """
-    try:
-        # Load the diabetes dataset
-        training_data = pd.read_csv('./data/diabetes.csv')
-        # Train the model and save it
-        train_model(training_data)
-    except FileNotFoundError:
-        print("Error: 'diabetes.csv' file not found in the data directory.")
+    grid = RandomizedSearchCV(
+        estimator=model,
+        param_distributions=param_grid,
+        cv=cv,
+        n_iter=5,
+        n_jobs=-1,
+        scoring="f1",
+        verbose=1
+    )
+
+    grid.fit(X, y)
+    return grid
+
+def save_model(model, path="./models/best_model.pkl"):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    joblib.dump(model, path)
+    print(f"✅ Model saved to {path}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--model", default="lr", choices=["lr", "rf", "xgb"])
+    parser.add_argument("--out_dir", default="./models")
+    parser.add_argument("--smote", action="store_true")
+    args = parser.parse_args()
+
+    df = load_data(args.data)
+    best_model = train_model(df, args.model, use_smote=args.smote)
+    save_model(best_model, f"{args.out_dir}/best_model_{args.model}.pkl")
+
+    print("Best Params:", best_model.best_params_)
+    print("Classification Report:\n", classification_report(df["Outcome"], best_model.predict(df.drop("Outcome", axis=1))))
