@@ -64,6 +64,7 @@ def main():
         'statistical_analysis.py',
         'model_training.py',
         'model_evaluation.py'
+        'model_explainability_interpretability.py'
     ]
 
     for script in scripts_to_run:
