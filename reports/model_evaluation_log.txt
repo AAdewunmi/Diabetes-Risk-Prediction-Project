@@ -1,5 +1,15 @@
-usage: model_evaluation.py [-h] --model MODEL --data DATA [--out_dir OUT_DIR]
-model_evaluation.py: error: the following arguments are required: --model
+Classification Report:
 
---- Running model_evaluation.py --data data/diabetes.csv --model_path reports/models/best_model_rf.joblib --out_dir reports/eval ---
-❌ Error executing model_evaluation.py: Command '['python', 'src/model_evaluation.py', '--data', 'data/diabetes.csv', '--model_path', 'reports/models/best_model_rf.joblib', '--out_dir', 'reports/eval']' returned non-zero exit status 2.
+              precision    recall  f1-score   support
+
+           0       0.99      1.00      0.99       500
+           1       1.00      0.97      0.99       268
+
+    accuracy                           0.99       768
+   macro avg       0.99      0.99      0.99       768
+weighted avg       0.99      0.99      0.99       768
+
+✅ Reports saved to reports/eval
+
+--- Running model_evaluation.py --data data/diabetes.csv --model reports/models/best_model_rf.pkl --out_dir reports/eval ---
+--- Finished running model_evaluation.py ✅ ---

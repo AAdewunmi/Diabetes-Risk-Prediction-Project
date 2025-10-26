@@ -4,5 +4,5 @@ INFO: Pearson BMI vs Glucose: r=0.2211, p=5.891e-10
 INFO: ANOVA (Glucose by Age_Bin) completed.
 INFO: Logistic regression fitted using formula: Outcome ~ Age + BMI + Glucose + Insulin
 
---- Running statistical_analysis.py  ---
+--- Running statistical_analysis.py --data data/diabetes.csv ---
 --- Finished running statistical_analysis.py ✅ ---

@@ -7,5 +7,5 @@ INFO: Saved outcome distribution to reports/outcome_distribution.png
 INFO: Saved correlation heatmap to reports/correlation_heatmap.png
 INFO: No obvious time-series columns detected.
 
---- Running data_exploration.py  ---
+--- Running data_exploration.py --data data/diabetes.csv ---
 --- Finished running data_exploration.py ✅ ---

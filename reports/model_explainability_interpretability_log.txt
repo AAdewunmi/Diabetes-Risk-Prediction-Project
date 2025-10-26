@@ -3,5 +3,5 @@ usage: model_explainability_interpretability.py [-h] --model MODEL --data DATA
 model_explainability_interpretability.py: error: the following arguments are required: --model
 <IPython.core.display.HTML object>
 
---- Running model_explainability_interpretability.py --model_path reports/models/best_model_rf.joblib --data data/diabetes.csv --out_dir reports/explain --method all ---
-❌ Error executing model_explainability_interpretability.py: Command '['python', 'src/model_explainability_interpretability.py', '--model_path', 'reports/models/best_model_rf.joblib', '--data', 'data/diabetes.csv', '--out_dir', 'reports/explain', '--method', 'all']' returned non-zero exit status 2.
+--- Running model_explainability_interpretability.py --model_path reports/models/best_model_rf.pkl --data data/diabetes.csv --out_dir reports/explain --method all ---
+❌ Error executing model_explainability_interpretability.py: Command '['/Users/adrianadewunmi/VSCODE/Diabetes-Risk-Prediction-Project/venv/bin/python', 'src/model_explainability_interpretability.py', '--model_path', 'reports/models/best_model_rf.pkl', '--data', 'data/diabetes.csv', '--out_dir', 'reports/explain', '--method', 'all']' returned non-zero exit status 2.
