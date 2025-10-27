@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
 """
-model_training_refactored.py
+src/model_training.py
 
-Refactored model training script for the Diabetes Risk Prediction Project.
+Train models for the Diabetes Risk Prediction Project.
 
 Features:
-- Multiple model options: logistic regression (baseline), Random Forest, Gradient Boosting, XGBoost (optional)
-- Hyperparameter tuning via RandomizedSearchCV
-- k-fold cross-validation (StratifiedKFold)
-- Optional SMOTE for handling class imbalance (requires imbalanced-learn)
-- Uses joblib.parallel_backend("threading") to avoid macOS `resource_tracker` errors when using parallel backends
-- Saves best model and training metrics to disk under an output directory
-
-Usage:
-    python src/model_training_refactored.py --data ./data/diabetes.csv --model rf --out_dir ./reports --smote
+- Select model via CLI: logreg (default), rf, gb, xgb (xgboost optional)
+- RandomizedSearchCV hyperparameter tuning
+- Cross-validation and test evaluation
+- Optional SMOTE (imbalanced-learn)
+- Uses joblib.parallel_backend("threading") for heavy parallel jobs to reduce macOS resource-tracker noise
+- Saves artifacts to <out_dir>/models and metrics to <out_dir>
 
 Outputs:
-- Trained model saved to: <out_dir>/models/<model_name>_best.joblib
-- Search object saved to: <out_dir>/models/<model_name>_search.joblib (if search used)
-- Metrics JSON saved to: <out_dir>/<model_name>_metrics.json
-
-Notes:
-- XGBoost and imbalanced-learn are optional dependencies. The script falls back gracefully if they are absent.
-- To avoid macOS multiprocessing/resource_tracker tracebacks, the heavy parallel work is executed with the "threading" backend.
+- <out_dir>/models/<model_name>_best.joblib
+- <out_dir>/models/<model_name>_search.joblib (if search used)
+- <out_dir>/<model_name>_metrics.json
 """
-
 from typing import Tuple, Dict, Any, Optional
-import os
 import argparse
-import logging
 import json
+import logging
+import os
 
 import numpy as np
 import pandas as pd
@@ -42,10 +34,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import roc_auc_score, f1_score
 
-# Use threading backend to avoid macOS resource_tracker errors when using loky/processes
 from joblib import parallel_backend
 
-# Optional imports
+# Optional
 try:
     import xgboost as xgb  # type: ignore
     XGBOOST_AVAILABLE = True
@@ -59,21 +50,10 @@ try:
 except Exception:
     IMBLEARN_AVAILABLE = False
 
-# Logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 def load_data(path: str, target_col: str = "Outcome") -> Tuple[pd.DataFrame, pd.Series]:
-    """
-    Load CSV dataset and split into X (features) and y (target).
-
-    Args:
-        path: path to CSV file
-        target_col: name of the target column in the CSV
-
-    Returns:
-        X (DataFrame), y (Series)
-    """
     df = pd.read_csv(path)
     if target_col not in df.columns:
         raise KeyError(f"Target column '{target_col}' not found in data.")
@@ -83,18 +63,6 @@ def load_data(path: str, target_col: str = "Outcome") -> Tuple[pd.DataFrame, pd.
 
 
 def build_pipeline(model_name: str = "logreg", use_scaler: bool = True, random_state: int = 42, use_smote: bool = False):
-    """
-    Build a scikit-learn pipeline for preprocessing + estimator.
-
-    Args:
-        model_name: one of "logreg", "rf", "gb", "xgb"
-        use_scaler: whether to include StandardScaler
-        random_state: random seed
-        use_smote: whether to build an imbalanced-learn pipeline (SMOTE) if available
-
-    Returns:
-        pipeline (Pipeline or ImbPipeline), param_dist (dict)
-    """
     steps = []
     if use_scaler:
         steps.append(("scaler", StandardScaler()))
@@ -132,7 +100,6 @@ def build_pipeline(model_name: str = "logreg", use_scaler: bool = True, random_s
     steps.append(("estimator", estimator))
 
     if use_smote and IMBLEARN_AVAILABLE:
-        # Build imbalanced-learn pipeline where SMOTE is applied before estimator
         pl = ImbPipeline(steps)
     else:
         pl = Pipeline(steps)
@@ -148,32 +115,10 @@ def train_and_tune(X: pd.DataFrame, y: pd.Series,
                    cv_folds: int = 5,
                    n_iter_search: int = 20,
                    out_dir: str = "./reports") -> Dict[str, Any]:
-    """
-    Train and tune a model. Uses RandomizedSearchCV for hyperparameter tuning, evaluates on a held-out test set,
-    and returns the trained model and metrics.
-
-    Important: heavy parallel calls (search.fit and cross_val_score) are executed under joblib.parallel_backend("threading")
-    to avoid macOS resource_tracker warnings while retaining parallelism benefits.
-
-    Args:
-        X: features DataFrame
-        y: target Series
-        model_name: model choice
-        test_size: test split proportion
-        random_state: random seed
-        use_smote: whether to use SMOTE (requires imbalanced-learn)
-        cv_folds: number of CV folds
-        n_iter_search: number of iterations for RandomizedSearchCV
-        out_dir: directory to save artifacts
-
-    Returns:
-        dictionary with model, metrics, model_path, and search_obj (if applicable)
-    """
     os.makedirs(out_dir, exist_ok=True)
     models_dir = os.path.join(out_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
 
-    # Stratified split when possible
     stratify_arg = y if len(np.unique(y)) > 1 else None
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size,
                                                         random_state=random_state,
@@ -195,25 +140,21 @@ def train_and_tune(X: pd.DataFrame, y: pd.Series,
             random_state=random_state
         )
 
-    # Fit with threading backend to avoid macOS loky/resource_tracker issues
     if search:
         logging.info("Starting hyperparameter search with threading backend...")
         with parallel_backend("threading"):
             search.fit(X_train, y_train)
         best = search.best_estimator_
         logging.info("Hyperparameter search completed. Best params: %s", search.best_params_)
-        # Save the search object
         joblib.dump(search, os.path.join(models_dir, f"{model_name}_search.joblib"))
     else:
         logging.info("No parameter grid provided for model; fitting pipeline directly.")
         best = pipeline.fit(X_train, y_train)
 
-    # Save best estimator
     model_path = os.path.join(models_dir, f"{model_name}_best.joblib")
     joblib.dump(best, model_path)
     logging.info("Saved best model to %s", model_path)
 
-    # Predictions and probabilites (if available)
     preds = best.predict(X_test)
     probas = None
     try:
@@ -221,14 +162,12 @@ def train_and_tune(X: pd.DataFrame, y: pd.Series,
     except Exception:
         logging.debug("predict_proba not available for this model/estimator.")
 
-    # Basic metrics
     metrics = {
         "roc_auc": float(roc_auc_score(y_test, probas)) if probas is not None else None,
         "f1": float(f1_score(y_test, preds, zero_division=0))
     }
     logging.info("Test ROC AUC: %s | F1: %s", metrics["roc_auc"], metrics["f1"])
 
-    # Cross-validation metrics using threading backend
     cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     try:
         logging.info("Starting cross-validation scoring with threading backend...")
@@ -240,7 +179,6 @@ def train_and_tune(X: pd.DataFrame, y: pd.Series,
     except Exception as e:
         logging.warning("Cross-val scoring failed: %s", e)
 
-    # Save metrics to JSON
     metrics_path = os.path.join(out_dir, f"{model_name}_metrics.json")
     with open(metrics_path, "w") as fh:
         json.dump(metrics, fh, indent=2)
@@ -252,7 +190,7 @@ def train_and_tune(X: pd.DataFrame, y: pd.Series,
 def parse_args():
     parser = argparse.ArgumentParser(description="Train models for Diabetes Risk Prediction")
     parser.add_argument("--data", type=str, required=True, help="Path to CSV dataset")
-    parser.add_argument("--model", type=str, default="rf", choices=["logreg", "rf", "gb", "xgb"], help="Model to train")
+    parser.add_argument("--model", type=str, default="logreg", choices=["logreg", "rf", "gb", "xgb"], help="Model to train (default: logreg)")
     parser.add_argument("--out_dir", type=str, default="reports", help="Directory to save models and metrics")
     parser.add_argument("--smote", action="store_true", help="Apply SMOTE to training data (requires imbalanced-learn)")
     parser.add_argument("--cv", type=int, default=5, help="Number of CV folds")
@@ -278,5 +216,4 @@ if __name__ == "__main__":
                             out_dir=args.out_dir)
 
     logging.info("Training complete. Results: %s", result["metrics"])
-    # Print metrics summary for quick CLI view
     print(json.dumps(result["metrics"], indent=2))
