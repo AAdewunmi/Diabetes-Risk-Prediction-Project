@@ -1,15 +1,19 @@
+INFO: Loaded model from reports/models/gb_best.joblib
+INFO: Saved confusion matrix to reports/eval/confusion_matrix.png
+INFO: Saved ROC curve to reports/eval/roc_curve.png
+INFO: Saved classification report to reports/eval/classification_report.txt
+INFO: Evaluation artifacts saved to reports/eval
 Classification Report:
 
               precision    recall  f1-score   support
 
-           0       0.99      1.00      0.99       500
-           1       1.00      0.97      0.99       268
+           0       0.83      0.92      0.87       500
+           1       0.82      0.65      0.72       268
 
-    accuracy                           0.99       768
-   macro avg       0.99      0.99      0.99       768
-weighted avg       0.99      0.99      0.99       768
+    accuracy                           0.83       768
+   macro avg       0.82      0.78      0.80       768
+weighted avg       0.82      0.83      0.82       768
 
-✅ Reports saved to reports/eval
 
---- Running model_evaluation.py --data data/diabetes.csv --model reports/models/best_model_rf.pkl --out_dir reports/eval ---
---- Finished running model_evaluation.py ✅ ---
+--- Running model_evaluation.py --data data/diabetes.csv --model reports/models/gb_best.joblib --out_dir reports/eval ---
+--- Finished model_evaluation.py ✅ ---

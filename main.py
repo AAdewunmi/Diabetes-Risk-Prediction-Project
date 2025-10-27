@@ -69,7 +69,7 @@ def choose_model_interactively() -> str:
     print("B) rf – Random Forest")
     print("C) gb – Gradient Boosting")
     print("D) xgb – XGBoost (requires xgboost installed)")
-    choice = input("Choose either: A / B / C / D (press Enter for default A): ").strip().upper()
+    choice = input("Choose either: A / B / C / D (Press Enter): ").strip().upper()
     if not choice:
         choice = "A"
     selected = mapping.get(choice, "logreg")

@@ -5,4 +5,4 @@ INFO: ANOVA (Glucose by Age_Bin) completed.
 INFO: Logistic regression fitted using formula: Outcome ~ Age + BMI + Glucose + Insulin
 
 --- Running statistical_analysis.py --data data/diabetes.csv ---
---- Finished running statistical_analysis.py ✅ ---
+--- Finished statistical_analysis.py ✅ ---

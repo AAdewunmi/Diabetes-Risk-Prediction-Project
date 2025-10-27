@@ -10,5 +10,5 @@ First 5 rows of the processed data:
 
 [5 rows x 9 columns]
 
---- Running data_processing.py  ---
---- Finished running data_processing.py ✅ ---
+--- Running data_processing.py --data data/diabetes.csv ---
+--- Finished data_processing.py ✅ ---

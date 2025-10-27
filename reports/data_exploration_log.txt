@@ -8,4 +8,4 @@ INFO: Saved correlation heatmap to reports/correlation_heatmap.png
 INFO: No obvious time-series columns detected.
 
 --- Running data_exploration.py --data data/diabetes.csv ---
---- Finished running data_exploration.py ✅ ---
+--- Finished data_exploration.py ✅ ---
