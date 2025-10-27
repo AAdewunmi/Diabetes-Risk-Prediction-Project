@@ -19,13 +19,8 @@ The project follows a standard data science workflow, with each step implemented
 7.  **Model Evaluation:** Assesses the performance of the trained model.
 6.  **Model Explainability & Interpretability:** 
 Use model interpretability tools such as SHAP or LIME to explain the predictions of the machine learning model, especially for sensitive areas like healthcare.
-7.  **Feature Importance Analysis:** 
-
-7.  **Data Science (End-To-End) Pipeline:** 
-
-4.  **Data Visualisation:** Creates informative plots to understand data patterns.
-5.  **Statistical Analysis:** Performs statistical tests to gain insights.
-
+8.  **Feature Importance Analysis:** 
+9.  **Data Science (End-To-End) Pipeline:** 
 
 You can run all these steps using the `main.py` script.
 
