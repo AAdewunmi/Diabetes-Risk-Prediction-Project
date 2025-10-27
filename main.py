@@ -1,60 +1,101 @@
 #!/usr/bin/env python3
 """
-main.py - pipeline runner for Diabetes Risk Prediction Project
+main.py - robust pipeline runner for Diabetes Risk Prediction Project
 
-Features:
-- Prompts user to choose model for training (default: logreg)
-- Runs preprocessing scripts (if present), training, evaluation, explainability
-- Captures logs to reports/<script>_log.txt
-- Prints a numbered status for each stage (Success/Fail)
+This script runs the project's stepwise pipeline (data -> train -> eval -> explain)
+and writes logs to the `reports/` directory. It attempts to be robust to small
+naming/extension mismatches encountered in different versions of scripts.
+
+Key features:
+- Detects whether you have the refactored scripts (e.g. model_training_refactored.py,
+  model_evaluation_refactored.py) or original names (model_training.py, model_evaluation.py)
+  and runs whichever is present.
+- Searches reports/models/ for existing model artifacts (.joblib, .pkl) and uses the first match.
+- Chooses correct CLI flag name for evaluator based on which file exists (`--model` or `--model_path`).
+- Writes per-script stdout+stderr into reports/<script_name>_log.txt.
+- Creates required output folders automatically.
+
+Usage:
+    python main.py
 """
+from __future__ import annotations
+
+import glob
 import os
 import subprocess
 import sys
-import glob
-from typing import List, Optional, Tuple
-
-PROJECT_SRC = "src"
-DATA_PATH = "data/diabetes.csv"
-REPORTS_DIR = "reports"
-MODELS_DIR = os.path.join(REPORTS_DIR, "models")
-EVAL_DIR = os.path.join(REPORTS_DIR, "eval")
-EXPLAIN_DIR = os.path.join(REPORTS_DIR, "explain")
-
-os.makedirs(REPORTS_DIR, exist_ok=True)
-os.makedirs(MODELS_DIR, exist_ok=True)
-os.makedirs(EVAL_DIR, exist_ok=True)
-os.makedirs(EXPLAIN_DIR, exist_ok=True)
+from typing import List, Optional
 
 
-def run_script(script: str, args: Optional[List[str]] = None) -> Tuple[bool, str]:
+def run_script(script_name: str, args: Optional[List[str]] = None) -> None:
+    """
+    Run a Python script inside src/ and capture stdout+stderr to a log file in reports/.
+
+    Args:
+        script_name: filename inside src/ (e.g. "model_training.py")
+        args: list of CLI args (e.g. ["--data", "data.csv"])
+
+    Returns:
+        None
+    """
     if args is None:
         args = []
-    script_path = os.path.join(PROJECT_SRC, script)
-    log_path = os.path.join(REPORTS_DIR, f"{os.path.splitext(script)[0]}_log.txt")
-    with open(log_path, "w", encoding="utf-8") as log:
-        print(f"\n--- Running {script} {' '.join(args)} ---", file=log)
+
+    os.makedirs("reports", exist_ok=True)
+    script_path = os.path.join("src", script_name)
+    log_file = os.path.join("reports", f"{os.path.splitext(script_name)[0]}_log.txt")
+
+    with open(log_file, "w") as log:
+        print(f"\n--- Running {script_name} {' '.join(args)} ---", file=log)
         try:
-            res = subprocess.run([sys.executable, script_path] + args, check=True, stdout=log, stderr=log)
-            print(f"--- Finished {script} ✅ ---", file=log)
-            return True, log_path
+            # directly call subprocess.run without assigning to an unused variable
+            subprocess.run(
+                [sys.executable, script_path] + args, check=True, stdout=log, stderr=log
+            )
+            print(f"--- Finished running {script_name} ✅ ---", file=log)
         except subprocess.CalledProcessError as e:
-            print(f"--- Failed {script} ❌: {e} ---", file=log)
-            return False, log_path
+            print(f"❌ Error executing {script_name}: {e}", file=log)
         except FileNotFoundError:
-            msg = f"Script not found: {script_path}"
-            with open(log_path, "a") as log2:
-                log2.write(msg + "\n")
-            return False, log_path
+            print(f"❌ Script not found: {script_path}", file=log)
 
 
-def find_model_artifact(models_dir: str, base_name: str = "") -> Optional[str]:
-    # find joblib or pkl
+def find_existing_model(
+    models_dir: str, base_name: str = "best_model"
+) -> Optional[str]:
+    """
+    Look for common model filenames inside models_dir and return the first existing path.
+
+    Checks patterns:
+      - <models_dir>/<base_name>_<model>.joblib
+      - <models_dir>/<base_name>_<model>.pkl
+      - <models_dir>/*.joblib
+      - <models_dir>/*.pkl
+
+    Args:
+        models_dir: directory to search
+        base_name: prefix to look for
+
+    Returns:
+        Path to model file if found, else None
+    """
+    if not os.path.isdir(models_dir):
+        return None
+
+    # Look for explicit candidate names first (rf fallback)
+    candidates = [
+        os.path.join(models_dir, f"{base_name}_rf.joblib"),
+        os.path.join(models_dir, f"{base_name}_rf.pkl"),
+    ]
+    # general patterns
     for ext in ("joblib", "pkl"):
-        matches = glob.glob(os.path.join(models_dir, f"*{base_name}*.{ext}"))
+        candidates.append(os.path.join(models_dir, f"{base_name}*.{ext}"))
+    # expand globs
+    for cand in candidates:
+        matches = glob.glob(cand)
         if matches:
+            # return the first match
             return matches[0]
-    # fallback any
+    # fallback: any joblib/pkl in dir
     for ext in ("joblib", "pkl"):
         matches = glob.glob(os.path.join(models_dir, f"*.{ext}"))
         if matches:
@@ -62,118 +103,216 @@ def find_model_artifact(models_dir: str, base_name: str = "") -> Optional[str]:
     return None
 
 
-def choose_model_interactively() -> str:
-    mapping = {"A": "logreg", "B": "rf", "C": "gb", "D": "xgb"}
-    print("Which model do you want in pipeline?")
-    print("A) logreg – simplest baseline (Default)")
-    print("B) rf – Random Forest")
-    print("C) gb – Gradient Boosting")
-    print("D) xgb – XGBoost (requires xgboost installed)")
-    choice = input("Choose either: A / B / C / D (Press Enter): ").strip().upper()
-    if not choice:
-        choice = "A"
-    selected = mapping.get(choice, "logreg")
-    print(f"{choice}) {selected} selected as training model.")
-    return selected
+def choose_script(choices: List[str]) -> Optional[str]:
+    """
+    Return the first script filename from choices that exists under src/.
 
+    Args:
+        choices: ordered list of filenames to check (e.g. ['model_evaluation_refactored.py', 'model_evaluation.py'])
 
-def choose_existing_script(candidates: List[str]) -> Optional[str]:
-    for c in candidates:
-        if os.path.exists(os.path.join(PROJECT_SRC, c)):
-            return c
+    Returns:
+        the filename that exists, or None
+    """
+    for name in choices:
+        if os.path.exists(os.path.join("src", name)):
+            return name
     return None
 
 
-def stage_print(i: int, name: str, script: str, success: bool, extra: str = ""):
-    status = "Success" if success else "Fail"
-    print(f"{i}. {name}: {script} --> {status} {extra}")
+def main() -> None:
+    """
+    Build and run the pipeline. The function is defensive about:
+      - which script filenames exist,
+      - the model artifact filename/extension,
+      - evaluator flag name differences.
 
+    Steps:
+      1. Run preprocessing/data steps (if scripts exist).
+      2. Run training (prefer refactored training script if present).
+      3. Detect saved model artifact and use it for evaluation + explainability.
+      4. Run evaluation with the correct flag name.
+      5. Run explainability (refactored or original).
+    """
+    DATA_PATH = "data/diabetes.csv"
+    MODELS_DIR = "reports/models"
+    # ensure directories exist
+    os.makedirs("reports", exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
-def main():
-    selected_model = choose_model_interactively()
-
-    statuses = []
-    step = 1
-
-    # preprocessing scripts (optional)
-    preproc = [
-        ("Loading data", ["data_loading.py"]),
-        ("Preprocessing", ["data_processing.py"]),
-        ("Exploration", ["data_exploration.py"]),
-        ("Visualisation", ["data_visualisation.py"]),
-        ("Statistical analysis", ["statistical_analysis.py"])
-    ]
-
-    for label, scripts in preproc:
-        for script in scripts:
-            if os.path.exists(os.path.join(PROJECT_SRC, script)):
-                ok, log = run_script(script, ["--data", DATA_PATH] )
-                stage_print(step, label, script, ok, f"(log: {log})")
-                statuses.append((label, script, ok, log))
-                step += 1
-
-    # training (prefer refactored src/model_training.py)
-    training_script = choose_existing_script(["model_training.py", "model_training_refactored.py"])
+    # Decide which training script to use
+    training_script = choose_script(
+        ["model_training_refactored.py", "model_training.py"]
+    )
     if training_script is None:
-        print("No training script found in src/. Aborting training stage.")
-    else:
-        train_args = ["--data", DATA_PATH, "--model", selected_model, "--out_dir", REPORTS_DIR]
-        ok, log = run_script(training_script, train_args)
-        stage_print(step, "Training", training_script, ok, f"(model: {selected_model}, log: {log})")
-        statuses.append(("Training", training_script, ok, log))
-        step += 1
+        print(
+            "ERROR: No training script found in src/. Expected one of: model_training_refactored.py, model_training.py"
+        )
+        return
 
-    # find artifact
-    model_path = find_model_artifact(MODELS_DIR)
+    # Decide which evaluation script to use
+    eval_script = choose_script(
+        ["model_evaluation_refactored.py", "model_evaluation.py"]
+    )
+    if eval_script is None:
+        print(
+            "ERROR: No evaluation script found in src/. Expected one of: model_evaluation_refactored.py, model_evaluation.py"
+        )
+        return
+
+    # Decide which explainability script to use
+    explain_script = choose_script(
+        [
+            "model_explainability_interpretability.py",
+            "model_explainability.py",
+            "model_explainability_interpretability_refactored.py",
+        ]
+    )
+    # explain_script may be None — it's optional
+
+    # Stage scripts that are generic preprocessing steps (if present)
+    preproc_scripts = [
+        "data_loading.py",
+        "data_processing.py",
+        "data_exploration.py",
+        "data_visualisation.py",
+        "statistical_analysis.py",
+    ]
+    for s in preproc_scripts:
+        if os.path.exists(os.path.join("src", s)):
+            run_script(
+                s,
+                (
+                    ["--data", DATA_PATH]
+                    if "--data" in get_script_args(os.path.join("src", s))
+                    else []
+                ),
+            )
+
+    # 1) Training
+    print(f"Using training script: {training_script}")
+    # Build args for training — training scripts typically accept --data and --out_dir and optionally --model and --smote
+    training_args = ["--data", DATA_PATH, "--model", "rf", "--out_dir", MODELS_DIR]
+    run_script(training_script, training_args)
+
+    # 2) Locate saved model artifact
+    model_path = find_existing_model(MODELS_DIR, base_name="best_model")
     if model_path is None:
-        print("No model file found in reports/models/. Attempting common names (best_model_*.joblib)...")
-        model_path = find_model_artifact(MODELS_DIR, base_name="best_model")
-    if model_path:
-        print(f"Model artifact detected: {model_path}")
+        # sometimes older runs saved "best_model_rf.pkl" etc.
+        print(
+            "No model artifact found in reports/models/. Attempting common alternatives..."
+        )
+        possible = [
+            os.path.join(MODELS_DIR, "best_model_rf.pkl"),
+            os.path.join(MODELS_DIR, "best_model_rf.joblib"),
+            os.path.join(MODELS_DIR, "best_model.pkl"),
+            os.path.join(MODELS_DIR, "best_model.joblib"),
+        ]
+        for p in possible:
+            if os.path.exists(p):
+                model_path = p
+                break
+
+    if model_path is None:
+        print(
+            "ERROR: No trained model artifact found in reports/models/. Please run training or place a model file there."
+        )
+        return
+
+    print(f"Model artifact detected: {model_path}")
+
+    # 3) Evaluation
+    print(f"Using evaluation script: {eval_script}")
+    # Determine which flag the evaluator expects: read its help (if available) to detect argument name
+    if os.path.exists(os.path.join("src", "model_evaluation_refactored.py")):
+        eval_args = [
+            "--data",
+            DATA_PATH,
+            "--model_path",
+            model_path,
+            "--out_dir",
+            "reports/eval",
+        ]
     else:
-        print("No trained model artifact detected. Evaluation and explainability will be skipped.")
-    
-    # evaluation
-    eval_script = choose_existing_script(["model_evaluation.py", "model_evaluation_refactored.py"])
-    if eval_script and model_path:
-        # determine flag expected: prefer --model_path for refactored, else --model
-        args = ["--data", DATA_PATH, "--out_dir", EVAL_DIR]
-        if os.path.exists(os.path.join(PROJECT_SRC, "model_evaluation_refactored.py")):
-            args.insert(2, "--model_path")
-            args.insert(3, model_path)
+        # fallback: older evaluator expected --model
+        eval_args = [
+            "--data",
+            DATA_PATH,
+            "--model",
+            model_path,
+            "--out_dir",
+            "reports/eval",
+        ]
+
+    run_script(eval_script, eval_args)
+
+    # 4) Explainability (optional)
+    if explain_script:
+        print(f"Using explainability script: {explain_script}")
+        # refactored explainability expects --model_path; for older ones try --model
+        if (
+            "explainability" in explain_script
+            or "explain" in explain_script
+            or os.path.exists(
+                os.path.join("src", "model_explainability_interpretability.py")
+            )
+        ):
+            explain_args = [
+                "--model_path",
+                model_path,
+                "--data",
+                DATA_PATH,
+                "--out_dir",
+                "reports/explain",
+                "--method",
+                "all",
+            ]
+            run_script(explain_script, explain_args)
         else:
-            args.insert(2, "--model")
-            args.insert(3, model_path)
-        ok, log = run_script(eval_script, args)
-        stage_print(step, "Evaluation", eval_script, ok, f"(log: {log})")
-        statuses.append(("Evaluation", eval_script, ok, log))
-        step += 1
+            run_script(
+                explain_script,
+                [
+                    "--model",
+                    model_path,
+                    "--data",
+                    DATA_PATH,
+                    "--out_dir",
+                    "reports/explain",
+                ],
+            )
     else:
-        if not model_path:
-            stage_print(step, "Evaluation", "model_evaluation", False, "(no model artifact)")
-            step += 1
+        print("No explainability script found in src/ — skipping explainability stage.")
 
-    # explainability
-    explain_script = choose_existing_script(["model_explainability_interpretability.py", "model_explainability.py"])
-    if explain_script and model_path:
-        args = ["--data", DATA_PATH, "--out_dir", EXPLAIN_DIR, "--method", "all"]
-        # prefer model_path arg
-        args.insert(0, "--model_path")
-        args.insert(1, model_path)
-        ok, log = run_script(explain_script, args)
-        stage_print(step, "Explainability", explain_script, ok, f"(log: {log})")
-        statuses.append(("Explainability", explain_script, ok, log))
-        step += 1
-    else:
-        if not model_path:
-            stage_print(step, "Explainability", "model_explainability", False, "(no model artifact)")
-            step += 1
+    print("\n✅ Pipeline finished. Check reports/ for logs and generated artifacts.")
 
-    print("\n✅ Pipeline operations completed. Check reports/ for logs and generated artifacts.")
-    print("Summary:")
-    for i, (label, script, ok, log) in enumerate(statuses, start=1):
-        status = "Success" if ok else "Fail"
-        print(f"{i}. {label}: {script} --> {status} (log: {log})")
+
+def get_script_args(script_path: str) -> List[str]:
+    """
+    Attempt to inspect a script for common flags by scanning the file
+    for occurrences of '--data', '--model', '--model_path', '--out_dir'. This is a
+    lightweight, non-invasive check to help pass arguments when calling scripts.
+
+    Returns:
+        list of found flag names (e.g. ['--data', '--out_dir'])
+    """
+    flags: List[str] = []
+    if not os.path.exists(script_path):
+        return flags
+    try:
+        with open(script_path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+            for f in [
+                "--data",
+                "--model",
+                "--model_path",
+                "--out_dir",
+                "--out-dir",
+                "--smote",
+            ]:
+                if f in content:
+                    flags.append(f)
+    except Exception:
+        pass
+    return flags
 
 
 if __name__ == "__main__":

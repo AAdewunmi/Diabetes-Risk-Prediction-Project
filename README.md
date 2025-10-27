@@ -3,7 +3,7 @@
 This project aims to predict the risk of diabetes based on various medical measurements from the "diabetes.csv" dataset.
 
 
-## Objective 
+## Objective
 
 The goal of this project is to build a machine learning model that predicts the risk of diabetes using a dataset with medical features such as age, glucose levels, BMI, blood pressure, and others. By identifying high-risk individuals, the model can assist healthcare professionals in making early interventions.
 
@@ -17,10 +17,10 @@ The project follows a standard data science workflow, with each step implemented
 3.  **Exploratory Data Analysis (EDA):** Explores the data through summary statistics.
 6.  **Model Training:** Trains a logistic regression model to predict diabetes risk.
 7.  **Model Evaluation:** Assesses the performance of the trained model.
-6.  **Model Explainability & Interpretability:** 
+6.  **Model Explainability & Interpretability:**
 Use model interpretability tools such as SHAP or LIME to explain the predictions of the machine learning model, especially for sensitive areas like healthcare.
-8.  **Feature Importance Analysis:** 
-9.  **Data Science (End-To-End) Pipeline:** 
+7. **Feature Importance Analysis**
+8. **Data Science (End-To-End) Pipeline:**
 
 You can run all these steps using the `main.py` script.
 
@@ -70,7 +70,7 @@ diabetes_risk_prediction_project/
 ```
 
 
-## Technologies Used: 
+## Technologies Used:
 
 - Python 3.8+
 - pandas, numpy
@@ -110,7 +110,7 @@ diabetes_risk_prediction_project/
 6. **Usage & Executable Scripts**
 
 ````markdown
-All analysis scripts are executable Python scripts and can be run from the repository root.  
+All analysis scripts are executable Python scripts and can be run from the repository root.
 They read the dataset from `./data/diabetes.csv` (change `--data` if your file is elsewhere) and write results (plots, CSV summaries, model artifacts) to the `reports/` directory.
 
 **Example commands**

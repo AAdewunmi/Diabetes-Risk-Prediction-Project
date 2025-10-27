@@ -39,7 +39,7 @@ def preprocess_data(df):
     return df
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     The entry point of the script. It attempts to load the diabetes dataset,
     preprocesses it, and prints the first few rows of the processed data.
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     """
     try:
         # Load the diabetes dataset into a DataFrame
-        data_loaded = pd.read_csv('./data/diabetes.csv')
+        data_loaded = pd.read_csv("./data/diabetes.csv")
 
         # Perform preprocessing on the loaded data
         processed_data = preprocess_data(data_loaded)

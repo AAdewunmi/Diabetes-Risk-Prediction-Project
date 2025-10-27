@@ -14,17 +14,19 @@ Capabilities:
 Outputs results to console and returns result objects for programmatic use.
 """
 
-from typing import Optional, Tuple, Dict, Any
 import logging
+from typing import Any, Dict, Optional
+
 import numpy as np
 import pandas as pd
-from scipy import stats
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from scipy import stats
 
 # Optional import for survival analysis
 try:
-    from lifelines import KaplanMeierFitter, CoxPHFitter
+    from lifelines import CoxPHFitter, KaplanMeierFitter
+
     LIFELINES_AVAILABLE = True
 except Exception:
     LIFELINES_AVAILABLE = False
@@ -33,7 +35,9 @@ except Exception:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def t_test_between_groups(df: pd.DataFrame, col: str, group_col: str = "Outcome") -> Dict[str, Any]:
+def t_test_between_groups(
+    df: pd.DataFrame, col: str, group_col: str = "Outcome"
+) -> Dict[str, Any]:
     """
     Perform independent t-test between two groups identified by group_col (assumes binary).
     Returns test statistic and p-value.
@@ -43,12 +47,14 @@ def t_test_between_groups(df: pd.DataFrame, col: str, group_col: str = "Outcome"
         logging.warning("Less than two groups present for t-test on %s", col)
         return {}
     a, b = groups.iloc[0], groups.iloc[1]
-    t_stat, p_val = stats.ttest_ind(a, b, equal_var=False, nan_policy='omit')
+    t_stat, p_val = stats.ttest_ind(a, b, equal_var=False, nan_policy="omit")
     logging.info("t-test %s by %s: t=%.4f, p=%.4g", col, group_col, t_stat, p_val)
     return {"t_stat": float(t_stat), "p_value": float(p_val)}
 
 
-def mann_whitney_u(df: pd.DataFrame, col: str, group_col: str = "Outcome") -> Dict[str, Any]:
+def mann_whitney_u(
+    df: pd.DataFrame, col: str, group_col: str = "Outcome"
+) -> Dict[str, Any]:
     """
     Non-parametric Mann-Whitney U test between two groups.
     """
@@ -66,12 +72,14 @@ def pearson_correlation(df: pd.DataFrame, x: str, y: str) -> Dict[str, Any]:
     """
     Pearson correlation between two numeric columns.
     """
-    a = df[x].dropna()
-    b = df[y].dropna()
+    # a = df[x].dropna()
+    # b = df[y].dropna()
     # Align lengths by dropping NA on both
     common = df[[x, y]].dropna()
     if common.shape[0] < 3:
-        logging.warning("Insufficient paired data for Pearson correlation between %s and %s", x, y)
+        logging.warning(
+            "Insufficient paired data for Pearson correlation between %s and %s", x, y
+        )
         return {}
     corr, p_val = stats.pearsonr(common[x], common[y])
     logging.info("Pearson %s vs %s: r=%.4f, p=%.4g", x, y, corr, p_val)
@@ -84,11 +92,18 @@ def chi_square_test(df: pd.DataFrame, cat_x: str, cat_y: str) -> Dict[str, Any]:
     """
     contingency = pd.crosstab(df[cat_x], df[cat_y])
     if contingency.size == 0 or contingency.shape[0] < 2 or contingency.shape[1] < 2:
-        logging.warning("Insufficient data for chi-square between %s and %s", cat_x, cat_y)
+        logging.warning(
+            "Insufficient data for chi-square between %s and %s", cat_x, cat_y
+        )
         return {}
     chi2, p, dof, expected = stats.chi2_contingency(contingency)
     logging.info("Chi2 %s vs %s: chi2=%.4f, p=%.4g, dof=%s", cat_x, cat_y, chi2, p, dof)
-    return {"chi2": float(chi2), "p_value": float(p), "dof": int(dof), "expected": expected}
+    return {
+        "chi2": float(chi2),
+        "p_value": float(p),
+        "dof": int(dof),
+        "expected": expected,
+    }
 
 
 def one_way_anova(df: pd.DataFrame, response: str, factor: str) -> Dict[str, Any]:
@@ -124,14 +139,19 @@ def logistic_regression(df: pd.DataFrame, formula: str) -> Dict[str, Any]:
             "model": model,
             "summary": summary,
             "odds_ratios": odds_ratios,
-            "conf_int": conf
+            "conf_int": conf,
         }
     except Exception as e:
         logging.exception("Logistic regression failed for formula %s: %s", formula, e)
         return {}
 
 
-def survival_analysis(df: pd.DataFrame, time_col: str = "time", event_col: str = "event", output_dir: Optional[str] = None) -> Dict[str, Any]:
+def survival_analysis(
+    df: pd.DataFrame,
+    time_col: str = "time",
+    event_col: str = "event",
+    output_dir: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Perform Kaplan-Meier and Cox proportional hazards (if lifelines is installed).
 
@@ -157,20 +177,28 @@ def survival_analysis(df: pd.DataFrame, time_col: str = "time", event_col: str =
         kmf = KaplanMeierFitter()
         kmf.fit(durations=df[time_col], event_observed=df[event_col])
         results["kmf"] = kmf
-        logging.info("Kaplan-Meier fit complete. Median survival: %s", kmf.median_survival_time_)
+        logging.info(
+            "Kaplan-Meier fit complete. Median survival: %s", kmf.median_survival_time_
+        )
 
         # Optional CoxPH (requires some pre-processing for formula)
         cph = CoxPHFitter()
         # select numeric covariates
-        numeric = df.select_dtypes(include=[np.number]).drop(columns=[time_col, event_col], errors="ignore")
+        numeric = df.select_dtypes(include=[np.number]).drop(
+            columns=[time_col, event_col], errors="ignore"
+        )
         # combine with time/event
         cox_df = pd.concat([numeric, df[[time_col, event_col]]], axis=1).dropna()
         if cox_df.shape[0] > 10 and cox_df.shape[1] > 2:
-            cph.fit(cox_df, duration_col=time_col, event_col=event_col, show_progress=False)
+            cph.fit(
+                cox_df, duration_col=time_col, event_col=event_col, show_progress=False
+            )
             results["cph"] = cph
             logging.info("CoxPH model fitted.")
         else:
-            logging.info("Not enough data to fit CoxPH (need >10 rows and multiple covariates).")
+            logging.info(
+                "Not enough data to fit CoxPH (need >10 rows and multiple covariates)."
+            )
     except Exception as e:
         logging.exception("Error running survival analysis: %s", e)
 
@@ -179,8 +207,13 @@ def survival_analysis(df: pd.DataFrame, time_col: str = "time", event_col: str =
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Run statistical tests on diabetes dataset")
-    parser.add_argument("--data", type=str, default="./data/diabetes.csv", help="Path to CSV dataset")
+
+    parser = argparse.ArgumentParser(
+        description="Run statistical tests on diabetes dataset"
+    )
+    parser.add_argument(
+        "--data", type=str, default="./data/diabetes.csv", help="Path to CSV dataset"
+    )
     args = parser.parse_args()
 
     try:
@@ -199,7 +232,11 @@ if __name__ == "__main__":
     # Example ANOVA: glucose by binned age if age exists
     if "Age" in df.columns and "Glucose" in df.columns:
         # create age bins for ANOVA demo
-        df["Age_Bin"] = pd.cut(df["Age"], bins=[0, 30, 50, 70, 120], labels=["0-30", "31-50", "51-70", "70+"])
+        df["Age_Bin"] = pd.cut(
+            df["Age"],
+            bins=[0, 30, 50, 70, 120],
+            labels=["0-30", "31-50", "51-70", "70+"],
+        )
         one_way_anova(df, "Glucose", "Age_Bin")
 
     # Example logistic regression (adjust formula to available columns)

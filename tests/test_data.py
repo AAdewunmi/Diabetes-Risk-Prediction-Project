@@ -1,16 +1,13 @@
-import os
 import pandas as pd
-import tempfile
-from src.model_training import load_data
+
 from src.model_explainability_interpretability import find_target_column
+from src.model_training import load_data
+
 
 def make_small_csv(path):
-    df = pd.DataFrame({
-        "A": [1,2,3,4],
-        "B": [0,1,0,1],
-        "Outcome": [0,1,0,1]
-    })
+    df = pd.DataFrame({"A": [1, 2, 3, 4], "B": [0, 1, 0, 1], "Outcome": [0, 1, 0, 1]})
     df.to_csv(path, index=False)
+
 
 def test_load_data_and_target_detection(tmp_path):
     p = tmp_path / "small.csv"

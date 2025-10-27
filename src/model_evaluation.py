@@ -11,11 +11,10 @@ import logging
 import os
 
 import joblib
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-
-from sklearn.metrics import confusion_matrix, classification_report, roc_curve, auc
+from sklearn.metrics import auc, classification_report, confusion_matrix, roc_curve
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -32,7 +31,9 @@ def evaluate(model, df: pd.DataFrame, out_dir: str = "./reports"):
     os.makedirs(out_dir, exist_ok=True)
 
     if "Outcome" not in df.columns:
-        raise KeyError("Expected target column 'Outcome' in the dataset for evaluation.")
+        raise KeyError(
+            "Expected target column 'Outcome' in the dataset for evaluation."
+        )
 
     X = df.drop(columns=["Outcome"])
     y = df["Outcome"]
@@ -86,9 +87,16 @@ def evaluate(model, df: pd.DataFrame, out_dir: str = "./reports"):
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate a trained model")
     parser.add_argument("--model", type=str, help="Path to trained model (joblib/pkl)")
-    parser.add_argument("--model_path", type=str, help="Alternative path to trained model (joblib/pkl)")
+    parser.add_argument(
+        "--model_path", type=str, help="Alternative path to trained model (joblib/pkl)"
+    )
     parser.add_argument("--data", type=str, required=True, help="Path to CSV dataset")
-    parser.add_argument("--out_dir", type=str, default="reports/eval", help="Directory to save evaluation artifacts")
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        default="reports/eval",
+        help="Directory to save evaluation artifacts",
+    )
     return parser.parse_args()
 
 

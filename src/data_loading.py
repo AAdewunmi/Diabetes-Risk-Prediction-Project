@@ -38,7 +38,7 @@ def load_data(file_path):
         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     The entry point of the script. It attempts to load a CSV file
     containing data
@@ -48,7 +48,7 @@ if __name__ == '__main__':
         python load_data.py
     """
     # Define the path to the CSV file
-    data_file_path = './data/diabetes.csv'
+    data_file_path = "./data/diabetes.csv"
 
     # Load the data from the specified path
     data = load_data(data_file_path)

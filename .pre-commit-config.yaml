@@ -15,7 +15,7 @@
 repos:
   # General pre-commit repository of useful small hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0  # update as desired
+    rev: v6.0.0  # update as desired
     hooks:
       - id: check-yaml            # ensure YAML files are valid
       - id: end-of-file-fixer    # ensure files end with newline
@@ -24,21 +24,21 @@ repos:
 
   # Black: code formatter for Python
   - repo: https://github.com/psf/black
-    rev: stable
+    rev: 25.9.0
     hooks:
       - id: black
         args: ["--line-length=88"]
 
   # isort: sort imports deterministically
   - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
+    rev: 7.0.0
     hooks:
       - id: isort
         args: ["--profile", "black"]
 
   # Ruff: fast linter (combines flake8-like checks + autofix)
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: stable
+    rev: v0.14.2
     hooks:
       - id: ruff
         args: ["--fix"]   # remove `--fix` if you prefer only diagnostics

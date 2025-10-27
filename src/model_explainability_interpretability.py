@@ -11,23 +11,23 @@ Explainability & interpretability script.
 - Supports LIME (optional)
 - Accepts --model or --model_path for compatibility
 """
-from typing import Optional, Dict, Any
 import argparse
 import logging
 import os
 import pathlib
+from typing import Any, Dict, Optional
 
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
 from joblib import parallel_backend
 from sklearn.inspection import permutation_importance
 
 # optional libs
 try:
     import shap  # type: ignore
+
     SHAP_AVAILABLE = True
     try:
         shap.initjs()
@@ -38,6 +38,7 @@ except Exception:
 
 try:
     from lime.lime_tabular import LimeTabularExplainer  # type: ignore
+
     LIME_AVAILABLE = True
 except Exception:
     LIME_AVAILABLE = False
@@ -107,7 +108,9 @@ def make_selfcontained_shap_html(force_obj: Any, out_html_path: str) -> bool:
             logging.exception("Error locating shap JS bundle.")
 
     if not js_found:
-        logging.warning("No shap JS bundle embedded; HTML may not show interactive visualizations in some contexts.")
+        logging.warning(
+            "No shap JS bundle embedded; HTML may not show interactive visualizations in some contexts."
+        )
 
     head = f"<script>{embedded_js}</script>" if js_found else ""
     full = f"<!doctype html>\n<html>\n<head>\n<meta charset='utf-8'>\n{head}\n</head>\n<body>\n{frag}\n</body>\n</html>"
@@ -115,14 +118,22 @@ def make_selfcontained_shap_html(force_obj: Any, out_html_path: str) -> bool:
     try:
         with open(out_html_path, "w", encoding="utf-8") as fh:
             fh.write(full)
-        logging.info("Wrote self-contained SHAP HTML to %s (embedded_js=%s)", out_html_path, js_found)
+        logging.info(
+            "Wrote self-contained SHAP HTML to %s (embedded_js=%s)",
+            out_html_path,
+            js_found,
+        )
     except Exception:
-        logging.exception("Failed to write self-contained SHAP HTML to %s", out_html_path)
+        logging.exception(
+            "Failed to write self-contained SHAP HTML to %s", out_html_path
+        )
         return False
     return js_found
 
 
-def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> Dict[str, Any]:
+def shap_explain(
+    model, X: pd.DataFrame, out_dir: str, nsamples: int = 200
+) -> Dict[str, Any]:
     ensure_dir(out_dir)
     results: Dict[str, Any] = {}
     if not SHAP_AVAILABLE:
@@ -131,7 +142,10 @@ def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> D
 
     try:
         sample = X.sample(n=min(nsamples, X.shape[0]), random_state=42)
-        logging.info("Computing SHAP values on a sample of %d rows (threading backend)...", sample.shape[0])
+        logging.info(
+            "Computing SHAP values on a sample of %d rows (threading backend)...",
+            sample.shape[0],
+        )
         with parallel_backend("threading"):
             try:
                 explainer = shap.Explainer(model, X)
@@ -141,7 +155,10 @@ def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> D
 
         # static bar
         try:
-            def bar(): shap.plots.bar(shap_values, show=False)
+
+            def bar():
+                shap.plots.bar(shap_values, show=False)
+
             _save_png(bar, os.path.join(out_dir, "shap_bar.png"))
             results["shap_bar_png"] = os.path.join(out_dir, "shap_bar.png")
         except Exception:
@@ -149,7 +166,10 @@ def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> D
 
         # beeswarm
         try:
-            def bees(): shap.plots.beeswarm(shap_values, show=False)
+
+            def bees():
+                shap.plots.beeswarm(shap_values, show=False)
+
             _save_png(bees, os.path.join(out_dir, "shap_beeswarm.png"))
             results["shap_beeswarm_png"] = os.path.join(out_dir, "shap_beeswarm.png")
         except Exception:
@@ -157,16 +177,23 @@ def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> D
 
         # waterfall for first sample
         try:
-            def wf(): shap.plots.waterfall(shap_values[0], show=False)
+
+            def wf():
+                shap.plots.waterfall(shap_values[0], show=False)
+
             _save_png(wf, os.path.join(out_dir, "shap_waterfall_sample0.png"))
-            results["shap_waterfall_png"] = os.path.join(out_dir, "shap_waterfall_sample0.png")
+            results["shap_waterfall_png"] = os.path.join(
+                out_dir, "shap_waterfall_sample0.png"
+            )
         except Exception:
             logging.exception("SHAP waterfall failed")
 
         # interactive force self-contained HTML (ONLY this HTML)
         try:
             single_idx = sample.index[0]
-            force_obj = shap.plots.force(explainer(sample.loc[[single_idx]]), matplotlib=False)
+            force_obj = shap.plots.force(
+                explainer(sample.loc[[single_idx]]), matplotlib=False
+            )
             out_html = os.path.join(out_dir, "shap_local_force_selfcontained.html")
             embedded = make_selfcontained_shap_html(force_obj, out_html)
             results["shap_force_selfcontained_html"] = out_html
@@ -180,17 +207,23 @@ def shap_explain(model, X: pd.DataFrame, out_dir: str, nsamples: int = 200) -> D
         return {}
 
 
-def permutation_importance_explain(model, X: pd.DataFrame, y: pd.Series, out_dir: str, n_repeats: int = 10) -> Optional[str]:
+def permutation_importance_explain(
+    model, X: pd.DataFrame, y: pd.Series, out_dir: str, n_repeats: int = 10
+) -> Optional[str]:
     ensure_dir(out_dir)
     try:
         logging.info("Running permutation importance (threading backend)...")
         with parallel_backend("threading"):
-            r = permutation_importance(model, X, y, n_repeats=n_repeats, random_state=42, n_jobs=-1)
-        imp_df = pd.DataFrame({
-            "feature": X.columns,
-            "importance_mean": r.importances_mean,
-            "importance_std": r.importances_std
-        }).sort_values("importance_mean", ascending=False)
+            r = permutation_importance(
+                model, X, y, n_repeats=n_repeats, random_state=42, n_jobs=-1
+            )
+        imp_df = pd.DataFrame(
+            {
+                "feature": X.columns,
+                "importance_mean": r.importances_mean,
+                "importance_std": r.importances_std,
+            }
+        ).sort_values("importance_mean", ascending=False)
         csv_path = os.path.join(out_dir, "permutation_importance.csv")
         imp_df.to_csv(csv_path, index=False)
         logging.info("Saved permutation CSV to %s", csv_path)
@@ -209,7 +242,9 @@ def permutation_importance_explain(model, X: pd.DataFrame, y: pd.Series, out_dir
         return None
 
 
-def lime_local_explain(model, X: pd.DataFrame, y: pd.Series, out_dir: str, sample_idx: int = 0) -> Optional[str]:
+def lime_local_explain(
+    model, X: pd.DataFrame, y: pd.Series, out_dir: str, sample_idx: int = 0
+) -> Optional[str]:
     ensure_dir(out_dir)
     if not LIME_AVAILABLE:
         logging.warning("LIME not available; skipping.")
@@ -219,14 +254,16 @@ def lime_local_explain(model, X: pd.DataFrame, y: pd.Series, out_dir: str, sampl
             training_data=X.values,
             feature_names=X.columns.tolist(),
             class_names=[str(c) for c in np.unique(y)],
-            mode="classification"
+            mode="classification",
         )
 
         def predict_fn(arr):
             df_in = pd.DataFrame(arr, columns=X.columns)
             return model.predict_proba(df_in)
 
-        exp = explainer.explain_instance(X.values[sample_idx], predict_fn, num_features=min(10, X.shape[1]))
+        exp = explainer.explain_instance(
+            X.values[sample_idx], predict_fn, num_features=min(10, X.shape[1])
+        )
         html = exp.as_html()
         path = os.path.join(out_dir, "lime_local_explanation.html")
         with open(path, "w", encoding="utf-8") as fh:
@@ -250,9 +287,18 @@ def parse_cli_args():
     p.add_argument("--model", type=str, help="Path to model (backwards compat)")
     p.add_argument("--model_path", type=str, help="Path to model (preferred)")
     p.add_argument("--data", type=str, required=True, help="Path to CSV data")
-    p.add_argument("--out_dir", type=str, default="reports/explain", help="Output folder")
-    p.add_argument("--method", type=str, default="all", choices=["shap", "permutation", "lime", "all"])
-    p.add_argument("--nsamples", type=int, default=200, help="Samples to use for SHAP calculations")
+    p.add_argument(
+        "--out_dir", type=str, default="reports/explain", help="Output folder"
+    )
+    p.add_argument(
+        "--method",
+        type=str,
+        default="all",
+        choices=["shap", "permutation", "lime", "all"],
+    )
+    p.add_argument(
+        "--nsamples", type=int, default=200, help="Samples to use for SHAP calculations"
+    )
     return p.parse_args()
 
 
@@ -294,7 +340,9 @@ def main():
         if not html:
             logging.warning("LIME produced no output or failed.")
 
-    logging.info("Explainability run finished. Outputs: %s", os.path.abspath(args.out_dir))
+    logging.info(
+        "Explainability run finished. Outputs: %s", os.path.abspath(args.out_dir)
+    )
 
 
 if __name__ == "__main__":

@@ -11,16 +11,14 @@ Functions:
 Saves summary artifacts under the `reports/` directory by default.
 """
 
-from typing import Optional, List, Tuple
-import os
 import logging
-import pandas as pd
-import numpy as np
+import os
+from typing import List, Optional
 
-from data_visualisation import (
-    plot_outcome_distribution,
-    plot_correlation_heatmap
-)
+import numpy as np
+import pandas as pd
+
+from data_visualisation import plot_correlation_heatmap, plot_outcome_distribution
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -37,16 +35,20 @@ def generate_basic_summary(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pandas.DataFrame: summary table
     """
-    summary = pd.DataFrame({
-        "dtype": df.dtypes.astype(str),
-        "non_null_count": df.notnull().sum(),
-        "missing_count": df.isnull().sum(),
-        "pct_missing": (df.isnull().mean() * 100).round(2)
-    })
+    summary = pd.DataFrame(
+        {
+            "dtype": df.dtypes.astype(str),
+            "non_null_count": df.notnull().sum(),
+            "missing_count": df.isnull().sum(),
+            "pct_missing": (df.isnull().mean() * 100).round(2),
+        }
+    )
     return summary
 
 
-def missing_value_report(df: pd.DataFrame, output_path: Optional[str] = None) -> pd.DataFrame:
+def missing_value_report(
+    df: pd.DataFrame, output_path: Optional[str] = None
+) -> pd.DataFrame:
     """
     Compute and optionally save missingness report.
 
@@ -73,7 +75,14 @@ def detect_time_columns(df: pd.DataFrame) -> List[str]:
     Returns:
         list of candidate datetime column names (may be empty)
     """
-    possible_names = {"date", "datetime", "admission_date", "discharge_date", "visit_date", "timestamp"}
+    possible_names = {
+        "date",
+        "datetime",
+        "admission_date",
+        "discharge_date",
+        "visit_date",
+        "timestamp",
+    }
     found = [c for c in df.columns if c.lower() in possible_names]
     # Also detect columns that parse to datetime
     for c in df.columns:
@@ -121,9 +130,15 @@ def explore_data(df: pd.DataFrame, output_dir: str = "reports") -> None:
     target_cols = [c for c in ("Outcome", "readmitted") if c in df.columns]
     if target_cols:
         target = target_cols[0]
-        plot_outcome_distribution(df, target=target, output_path=os.path.join(output_dir, "outcome_distribution.png"))
+        plot_outcome_distribution(
+            df,
+            target=target,
+            output_path=os.path.join(output_dir, "outcome_distribution.png"),
+        )
     else:
-        logging.info("No target column ('Outcome' or 'readmitted') found; skipping outcome distribution plot.")
+        logging.info(
+            "No target column ('Outcome' or 'readmitted') found; skipping outcome distribution plot."
+        )
 
     # 4. Correlation heatmap of numeric columns
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -153,9 +168,15 @@ if __name__ == "__main__":
     # Example usage: python data_exploration.py
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run EDA for diabetes dataset and save reports.")
-    parser.add_argument("--data", type=str, default="./data/diabetes.csv", help="Path to CSV dataset")
-    parser.add_argument("--out", type=str, default="reports", help="Output reports directory")
+    parser = argparse.ArgumentParser(
+        description="Run EDA for diabetes dataset and save reports."
+    )
+    parser.add_argument(
+        "--data", type=str, default="./data/diabetes.csv", help="Path to CSV dataset"
+    )
+    parser.add_argument(
+        "--out", type=str, default="reports", help="Output reports directory"
+    )
     args = parser.parse_args()
 
     try:

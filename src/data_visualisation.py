@@ -13,11 +13,12 @@ Each function saves figures to disk and returns the matplotlib Figure object.
 Note: pairplots or very large plots sample the data to avoid memory/time issues.
 """
 
-from typing import Optional, List
-import os
 import logging
-import pandas as pd
+import os
+from typing import List, Optional
+
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 
 # Configure seaborn aesthetics (do not set global styles that override user's settings)
@@ -29,7 +30,11 @@ def ensure_dir(path: str) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
 
-def plot_outcome_distribution(df: pd.DataFrame, target: str = "Outcome", output_path: str = "reports/outcome_distribution.png") -> plt.Figure:
+def plot_outcome_distribution(
+    df: pd.DataFrame,
+    target: str = "Outcome",
+    output_path: str = "reports/outcome_distribution.png",
+) -> plt.Figure:
     """
     Plot and save the count distribution of a binary/multi-class target column.
     """
@@ -46,7 +51,11 @@ def plot_outcome_distribution(df: pd.DataFrame, target: str = "Outcome", output_
     return plt.gcf()
 
 
-def plot_correlation_heatmap(df: pd.DataFrame, output_path: str = "reports/correlation_heatmap.png", annot: bool = True) -> plt.Figure:
+def plot_correlation_heatmap(
+    df: pd.DataFrame,
+    output_path: str = "reports/correlation_heatmap.png",
+    annot: bool = True,
+) -> plt.Figure:
     """
     Plot and save correlation heatmap for numeric DataFrame df.
     """
@@ -62,7 +71,13 @@ def plot_correlation_heatmap(df: pd.DataFrame, output_path: str = "reports/corre
     return plt.gcf()
 
 
-def plot_pairplot_sample(df: pd.DataFrame, cols: List[str], hue: Optional[str] = None, sample_n: int = 1000, output_path: str = "reports/pairplot.png") -> None:
+def plot_pairplot_sample(
+    df: pd.DataFrame,
+    cols: List[str],
+    hue: Optional[str] = None,
+    sample_n: int = 1000,
+    output_path: str = "reports/pairplot.png",
+) -> None:
     """
     Create a seaborn pairplot on a sampled subset (to reduce memory/time).
     """
@@ -80,7 +95,9 @@ def plot_pairplot_sample(df: pd.DataFrame, cols: List[str], hue: Optional[str] =
         logging.exception("Pairplot failed: %s", e)
 
 
-def plot_violin(df: pd.DataFrame, x: str, y: str, output_path: str = "reports/violin.png") -> plt.Figure:
+def plot_violin(
+    df: pd.DataFrame, x: str, y: str, output_path: str = "reports/violin.png"
+) -> plt.Figure:
     """
     Violin plot (distribution) of y by categories in x.
     """
@@ -95,7 +112,12 @@ def plot_violin(df: pd.DataFrame, x: str, y: str, output_path: str = "reports/vi
     return plt.gcf()
 
 
-def plot_time_series_if_present(df: pd.DataFrame, date_col_candidates: Optional[List[str]] = None, value_cols: Optional[List[str]] = None, output_path: str = "reports/time_series.png") -> None:
+def plot_time_series_if_present(
+    df: pd.DataFrame,
+    date_col_candidates: Optional[List[str]] = None,
+    value_cols: Optional[List[str]] = None,
+    output_path: str = "reports/time_series.png",
+) -> None:
     """
     If a date-like column exists, aggregate and plot time-series trends for selected numeric columns.
 
@@ -106,7 +128,13 @@ def plot_time_series_if_present(df: pd.DataFrame, date_col_candidates: Optional[
     """
     ensure_dir(output_path)
     # heuristics for date columns:
-    candidates = date_col_candidates or ["date", "datetime", "admission_date", "visit_date", "timestamp"]
+    candidates = date_col_candidates or [
+        "date",
+        "datetime",
+        "admission_date",
+        "visit_date",
+        "timestamp",
+    ]
     date_col = None
     for c in candidates:
         if c in df.columns:
@@ -133,7 +161,11 @@ def plot_time_series_if_present(df: pd.DataFrame, date_col_candidates: Optional[
 
     # choose up to 3 columns to avoid clutter
     plot_cols = numerics[:3]
-    ts = df.dropna(subset=["_parsed_date"] + plot_cols).set_index("_parsed_date").sort_index()
+    ts = (
+        df.dropna(subset=["_parsed_date"] + plot_cols)
+        .set_index("_parsed_date")
+        .sort_index()
+    )
     if ts.empty:
         logging.info("No rows after parsing dates; skipping time-series.")
         return
@@ -155,9 +187,16 @@ def plot_time_series_if_present(df: pd.DataFrame, date_col_candidates: Optional[
 if __name__ == "__main__":
     # quick demo if run directly
     import argparse
-    parser = argparse.ArgumentParser(description="Create visual reports for the diabetes dataset")
-    parser.add_argument("--data", type=str, default="./data/diabetes.csv", help="Path to dataset CSV")
-    parser.add_argument("--out", type=str, default="reports", help="Output directory for plots")
+
+    parser = argparse.ArgumentParser(
+        description="Create visual reports for the diabetes dataset"
+    )
+    parser.add_argument(
+        "--data", type=str, default="./data/diabetes.csv", help="Path to dataset CSV"
+    )
+    parser.add_argument(
+        "--out", type=str, default="reports", help="Output directory for plots"
+    )
     args = parser.parse_args()
 
     try:
@@ -167,13 +206,31 @@ if __name__ == "__main__":
         raise
 
     # Example usage of the plotting functions
-    plot_outcome_distribution(df, target="Outcome", output_path=f"{args.out}/outcome_distribution.png")
+    plot_outcome_distribution(
+        df, target="Outcome", output_path=f"{args.out}/outcome_distribution.png"
+    )
     num_cols = df.select_dtypes(include=["number"]).columns.tolist()
     if len(num_cols) > 1:
-        plot_correlation_heatmap(df[num_cols], output_path=f"{args.out}/correlation_heatmap.png")
+        plot_correlation_heatmap(
+            df[num_cols], output_path=f"{args.out}/correlation_heatmap.png"
+        )
     # pairplot for a few columns (limit to safe number)
-    pair_cols = [c for c in ["Pregnancies", "Glucose", "BloodPressure", "BMI", "Age", "Outcome"] if c in df.columns]
+    pair_cols = [
+        c
+        for c in ["Pregnancies", "Glucose", "BloodPressure", "BMI", "Age", "Outcome"]
+        if c in df.columns
+    ]
     if pair_cols:
-        plot_pairplot_sample(df, cols=pair_cols, hue="Outcome" if "Outcome" in df.columns else None, output_path=f"{args.out}/pairplot.png")
-    plot_violin(df, x="Outcome" if "Outcome" in df.columns else df.columns[0], y="BMI" if "BMI" in df.columns else num_cols[0], output_path=f"{args.out}/violin.png")
+        plot_pairplot_sample(
+            df,
+            cols=pair_cols,
+            hue="Outcome" if "Outcome" in df.columns else None,
+            output_path=f"{args.out}/pairplot.png",
+        )
+    plot_violin(
+        df,
+        x="Outcome" if "Outcome" in df.columns else df.columns[0],
+        y="BMI" if "BMI" in df.columns else num_cols[0],
+        output_path=f"{args.out}/violin.png",
+    )
     plot_time_series_if_present(df, output_path=f"{args.out}/time_series.png")
