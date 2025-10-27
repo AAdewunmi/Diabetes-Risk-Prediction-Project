@@ -6,6 +6,7 @@ seaborn
 scipy
 joblib
 statsmodels
+pytest
 
 # Optional but recommended dependencies:
 imbalanced-learn
