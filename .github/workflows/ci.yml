@@ -1,0 +1,93 @@
+# .github/workflows/ci.yml
+# Path: .github/workflows/ci.yml
+#
+# Purpose:
+# - GitHub Actions workflow to run CI on push and pull requests.
+# - Runs linting, formatting checks, pre-commit, and tests.
+#
+# Notes:
+# - Adjust python-version matrix and install commands to match your project's
+#   dependency / packaging strategy (requirements.txt, poetry, pipenv, etc.).
+# - This workflow intentionally runs pre-commit checks and fast linters
+#   before running the test-suite to save CI minutes.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  test:
+    name: Lint → Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]  # adjust as needed
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        # Prefer your project's requirements file. If you use poetry/poetry.lock,
+        # replace these lines with appropriate install steps.
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "requirements-dev.txt" ]; then
+            pip install -r requirements-dev.txt
+          elif [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+            pip install pytest pre-commit ruff black isort
+          else
+            # minimal fallback: install core tooling
+            pip install pytest pre-commit ruff black isort
+          fi
+
+      - name: Run pre-commit (all files)
+        # Run the configured pre-commit hooks. This mirrors local developer checks.
+        run: |
+          pre-commit run --all-files
+
+      - name: Check formatting (black)
+        run: |
+          black --check .
+
+      - name: Check import order (isort)
+        run: |
+          isort --check-only --profile black .
+
+      - name: Run linter (ruff)
+        run: |
+          ruff check .
+
+      - name: Run tests
+        # Adjust pytest args/coverage as desired
+        run: |
+          pytest -q
+
+      - name: Upload test reports (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          path: tests/  # change if you create test artifacts (e.g., junit xml)
