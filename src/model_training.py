@@ -68,7 +68,7 @@ def build_pipeline(model_name: str = "logreg", use_scaler: bool = True, random_s
         steps.append(("scaler", StandardScaler()))
 
     if model_name == "logreg":
-        estimator = LogisticRegression(max_iter=1000, solver="liblinear", random_state=random_state)
+        estimator = LogisticRegression(max_iter=1000, solver="lbfgs", random_state=random_state)
         param_dist = {
             "estimator__C": [0.01, 0.1, 1, 10],
             "estimator__penalty": ["l1", "l2"]
