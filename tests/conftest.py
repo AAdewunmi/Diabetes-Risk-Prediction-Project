@@ -180,6 +180,19 @@ def sample_csv_path(tmp_path: Path) -> str:
     return str(p)
 
 
+@pytest.fixture
+def client():
+    # ensures the Flask app is importable
+    import sys
+
+    sys.path.insert(0, os.path.join(ROOT, "src"))
+    from dashboard.app import app
+
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        yield c
+
+
 # -------------------------------
 # Small helper importable within tests
 # -------------------------------
