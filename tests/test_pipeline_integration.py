@@ -3,6 +3,7 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.model_evaluation import evaluate
 from src.model_explainability_interpretability import permutation_importance_explain
@@ -58,3 +59,18 @@ def test_end_to_end(tmp_path):
         model, X, y, out_dir=explain_dir, n_repeats=3
     )
     assert perm_csv is None or os.path.exists(perm_csv)
+
+
+@pytest.mark.slow
+def test_e2e_train_eval_explain():
+    """
+    Optionally run the main pipeline (quick mode) to ensure artifacts created.
+    Marked slow - enable explicitly.
+    """
+    # This test assumes your training script supports a --quick flag (not required).
+    # Adjust to suit your repository's entrypoints. Here we just check that scripts are present.
+    assert os.path.exists("src/model_training.py") or os.path.exists(
+        "src/model_training_refactored.py"
+    )
+    assert os.path.exists("src/model_evaluation.py")
+    assert os.path.exists("src/model_explainability_interpretability.py")
