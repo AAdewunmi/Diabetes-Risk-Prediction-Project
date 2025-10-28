@@ -5,9 +5,18 @@ src/dashboard/app.py
 Flask dashboard that interfaces with the Diabetes Risk Prediction pipeline.
 
 Run (development):
+    1. macOS/Linux:
+        # from repo root
+        PYTHONPATH=src python src/dashboard/app.py
+
+    2. Windows (cmd):
+        # from repo root
+        set FLASK_APP=src/dashboard/app.py&& flask run --port 5000
+
     FLASK_APP=src/dashboard/app.py flask run --port 5000
 
-Or:
+    Or:
+
     python src/dashboard/app.py
 
 Endpoints:
