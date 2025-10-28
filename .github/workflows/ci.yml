@@ -83,7 +83,7 @@ jobs:
       - name: Run tests
         # Adjust pytest args/coverage as desired
         run: |
-          pytest -q
+          PYTHONPATH=src pytest -q
 
       - name: Make artifact name
         id: artname
