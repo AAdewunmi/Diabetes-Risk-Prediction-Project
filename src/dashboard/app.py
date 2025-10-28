@@ -36,12 +36,15 @@ from logging.handlers import RotatingFileHandler
 import pandas as pd
 from flask import (
     Flask,
+    abort,
+    current_app,
     flash,
     jsonify,
     redirect,
     render_template,
     request,
     send_file,
+    send_from_directory,
     url_for,
 )
 from werkzeug.utils import secure_filename
@@ -79,6 +82,21 @@ app.logger.setLevel(logging.INFO)
 
 def load_wrapper(preferred: str | None = None) -> ModelWrapper:
     return ModelWrapper(preferred)
+
+
+@app.route("/reports/explain/<path:filename>")
+def explain_file(filename: str):
+    safe_dir = os.path.abspath(
+        os.path.join(current_app.root_path, "..", "..", "reports", "explain")
+    )
+    file_path = os.path.join(safe_dir, filename)
+
+    # Basic safety: ensure the requested file is inside the directory
+    if not os.path.commonpath([safe_dir, os.path.abspath(file_path)]) == safe_dir:
+        abort(403)
+    if not os.path.exists(file_path):
+        abort(404)
+    return send_from_directory(safe_dir, filename)
 
 
 @app.route("/", methods=["GET"])
