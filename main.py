@@ -52,11 +52,11 @@ def run_script(script_name: str, args: Optional[List[str]] = None) -> None:
             subprocess.run(
                 [sys.executable, script_path] + args, check=True, stdout=log, stderr=log
             )
-            print(f"--- Finished running {script_name} ✅ ---", file=log)
+            print(f"--- Finished running {script_name} ---", file=log)
         except subprocess.CalledProcessError as e:
-            print(f"❌ Error executing {script_name}: {e}", file=log)
+            print(f" Error executing {script_name}: {e}", file=log)
         except FileNotFoundError:
-            print(f"❌ Script not found: {script_path}", file=log)
+            print(f" Script not found: {script_path}", file=log)
 
 
 def find_existing_model(
@@ -282,7 +282,9 @@ def main() -> None:
     else:
         print("No explainability script found in src/ — skipping explainability stage.")
 
-    print("\n✅ Pipeline finished. Check reports/ for logs and generated artifacts.")
+    print(
+        "\n Pipeline tasks complete. Check reports/ for logs and generated artifacts."
+    )
 
 
 def get_script_args(script_path: str) -> List[str]:
