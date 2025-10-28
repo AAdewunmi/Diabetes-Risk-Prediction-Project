@@ -85,9 +85,11 @@ jobs:
         run: |
           pytest -q
 
-      - name: Upload test reports (optional)
-        if: always()
+      - name: Upload pytest report
         uses: actions/upload-artifact@v4
         with:
           name: pytest-report
-          path: tests/  # change if you create test artifacts (e.g., junit xml)
+          path: tests/
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: true   # <<--- allow replacing existing artifact with same name
