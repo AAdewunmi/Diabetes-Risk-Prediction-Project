@@ -16,3 +16,10 @@ imbalanced-learn
 shap
 lime
 xgboost
+
+# For dashboard development:
+flask
+dash
+plotly
+dash-bootstrap-components
+gunicorn
