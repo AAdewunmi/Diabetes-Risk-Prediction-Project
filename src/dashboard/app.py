@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from logging.handlers import RotatingFileHandler
 
 import pandas as pd
@@ -50,6 +51,13 @@ from flask import (
 from werkzeug.utils import secure_filename
 
 from dashboard.predict import ModelWrapper, find_model
+
+# Ensure the repository's `src/` directory is on sys.path so `import dashboard.*` works
+HERE = os.path.dirname(os.path.abspath(__file__))  # src/dashboard
+SRC_ROOT = os.path.abspath(os.path.join(HERE, ".."))  # src
+if SRC_ROOT not in sys.path:
+    sys.path.insert(0, SRC_ROOT)
+
 
 # Configure app
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
