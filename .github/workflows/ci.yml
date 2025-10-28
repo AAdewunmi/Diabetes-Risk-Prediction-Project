@@ -85,10 +85,14 @@ jobs:
         run: |
           pytest -q
 
+      - name: Make artifact name
+        id: artname
+        run: echo "name=pytest-report-${GITHUB_RUN_ID}-${GITHUB_JOB}-$(date +%s)" >> $GITHUB_OUTPUT
+
       - name: Upload pytest report
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-report-${{ github.run_id }}-${{ github.job }}
+          name: ${{ steps.artname.outputs.name }}
           path: tests/
           if-no-files-found: warn
           compression-level: 6
