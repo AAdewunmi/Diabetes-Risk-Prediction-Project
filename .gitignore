@@ -186,3 +186,4 @@ fabric.properties
 
 .pytest_cache/
 .ruff_cache/
+.venv310

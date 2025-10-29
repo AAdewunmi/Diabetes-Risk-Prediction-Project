@@ -199,5 +199,3 @@ The project is open to contributions. Feel free to **open an issue** or submit a
 | **Contact** | Open an issue on the GitHub repository for questions or suggestions. |
 
 -----
-
-
