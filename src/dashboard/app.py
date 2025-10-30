@@ -2,43 +2,38 @@
 """
 src/dashboard/app.py
 
-Flask dashboard that interfaces with the Diabetes Risk Prediction pipeline.
+Flask dashboard application entrypoint.
+
+This file exposes the dashboard and includes a secure route to serve explanation
+artifacts from the project's reports/explain directory in-place (no copying).
 
 Run (development):
-    1. macOS/Linux:
-        # from repo root
-        PYTHONPATH=src python src/dashboard/app.py
+    PYTHONPATH=src flask --app src/dashboard/app.py run
+    or
+    PYTHONPATH=src python src/dashboard/app.py
 
-    2. Windows (cmd):
-        # from repo root
-        set FLASK_APP=src/dashboard/app.py&& flask run --port 5000
-
-    FLASK_APP=src/dashboard/app.py flask run --port 5000
-
-    Or:
-
-    python src/dashboard/app.py
-
-Endpoints:
-- GET  /                     -> dashboard page
-- POST /predict              -> single-record prediction (form or JSON)
-- POST /predict_batch        -> CSV upload for batch predictions
-- GET  /api/metrics          -> returns model metrics JSON (if present)
-- GET  /static/...           -> static assets (Bootstrap/Chart.js loaded locally)
+Routes:
+- GET  /                                -> dashboard index
+- POST /predict                         -> single prediction (form or JSON)
+- POST /predict_batch                   -> batch CSV upload
+- GET  /reports/explain/<path:filename> -> serve files from reports/explain (secure)
+- GET  /api/explain_files               -> list explain files (filename + mtime)
+- GET  /api/metrics                     -> JSON metrics
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import logging
 import os
-import sys
 from logging.handlers import RotatingFileHandler
+from typing import Any, Dict, List
 
 import pandas as pd
 from flask import (
     Flask,
     abort,
-    current_app,
     flash,
     jsonify,
     redirect,
@@ -50,40 +45,43 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-from dashboard.predict import ModelWrapper, find_model
+# Ensure src package imports work when running this file directly.
+_this_dir = os.path.dirname(os.path.abspath(__file__))  # .../project/src/dashboard
+_src_root = os.path.dirname(_this_dir)  # .../project/src
+if _src_root not in os.sys.path:
+    os.sys.path.insert(0, _src_root)
 
-# Ensure the repository's `src/` directory is on sys.path so `import dashboard.*` works
-HERE = os.path.dirname(os.path.abspath(__file__))  # src/dashboard
-SRC_ROOT = os.path.abspath(os.path.join(HERE, ".."))  # src
-if SRC_ROOT not in sys.path:
-    sys.path.insert(0, SRC_ROOT)
+from dashboard.predict import ModelWrapper, find_model  # noqa: E402
 
+BASE_DIR = _this_dir
+REPORTS_EXPLAIN_DIR = os.path.abspath(
+    os.path.join(BASE_DIR, "..", "..", "reports", "explain")
+)
+UPLOAD_TMP = os.path.abspath(
+    os.path.join(BASE_DIR, "..", "..", "reports", "tmp_uploads")
+)
 
-# Configure app
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATES_AUTO_RELOAD = True
+os.makedirs(UPLOAD_TMP, exist_ok=True)
+os.makedirs(REPORTS_EXPLAIN_DIR, exist_ok=True)
 
+# point Flask at repo-level template dir (src/templates)
+TEMPLATE_DIR = os.path.join(_src_root, "templates")  # _src_root is .../project/src
 app = Flask(
     __name__,
-    template_folder=os.path.join(BASE_DIR, "templates"),
-    static_folder=os.path.join(BASE_DIR, "static"),
+    template_folder=os.path.join(_src_root, "templates"),
+    static_folder=os.path.join(_src_root, "static"),
 )
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB uploads
-app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "..", "reports", "tmp_uploads")
-app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-key")  # replace in prod
 
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-os.makedirs(os.path.join(BASE_DIR, "..", "reports", "explain"), exist_ok=True)
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["UPLOAD_FOLDER"] = UPLOAD_TMP
+app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret-key")
 
-# Logging setup
-handler = RotatingFileHandler(
-    os.path.join(BASE_DIR, "..", "reports", "dashboard.log"),
-    maxBytes=5_000_000,
-    backupCount=2,
-)
+# logging
+log_path = os.path.abspath(os.path.join(_src_root, "..", "reports", "dashboard.log"))
+os.makedirs(os.path.dirname(log_path), exist_ok=True)
+handler = RotatingFileHandler(log_path, maxBytes=5_000_000, backupCount=2)
 handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
-handler.setFormatter(formatter)
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
 
@@ -94,17 +92,67 @@ def load_wrapper(preferred: str | None = None) -> ModelWrapper:
 
 @app.route("/reports/explain/<path:filename>")
 def explain_file(filename: str):
-    safe_dir = os.path.abspath(
-        os.path.join(current_app.root_path, "..", "..", "reports", "explain")
-    )
-    file_path = os.path.join(safe_dir, filename)
+    """
+    Securely serve files from reports/explain without copying them into src/static.
 
-    # Basic safety: ensure the requested file is inside the directory
-    if not os.path.commonpath([safe_dir, os.path.abspath(file_path)]) == safe_dir:
+    - Validates that the final absolute path is inside REPORTS_EXPLAIN_DIR.
+    - Returns 404 if file missing, 403 if attempt to escape directory.
+    """
+    safe_dir = REPORTS_EXPLAIN_DIR
+    requested = os.path.abspath(os.path.join(safe_dir, filename))
+
+    # Prevent directory traversal
+    if not os.path.commonpath([safe_dir, requested]) == safe_dir:
+        app.logger.warning("Forbidden file access attempt: %s", requested)
         abort(403)
-    if not os.path.exists(file_path):
+    if not os.path.exists(requested):
         abort(404)
     return send_from_directory(safe_dir, filename)
+
+
+def _list_explain_files(extensions: List[str] = None) -> List[Dict[str, Any]]:
+    """
+    Return a list of files in REPORTS_EXPLAIN_DIR filtered by extensions
+    with their modification times (as integer timestamps).
+    """
+    if extensions is None:
+        extensions = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".html"]
+    out: List[Dict[str, Any]] = []
+    try:
+        for name in os.listdir(REPORTS_EXPLAIN_DIR):
+            path = os.path.join(REPORTS_EXPLAIN_DIR, name)
+            if not os.path.isfile(path):
+                continue
+            if extensions and not any(name.lower().endswith(ext) for ext in extensions):
+                continue
+            try:
+                mtime = int(os.path.getmtime(path))
+            except Exception:
+                mtime = 0
+            out.append({"filename": name, "mtime": mtime})
+        out.sort(key=lambda r: r["mtime"], reverse=True)
+    except FileNotFoundError:
+        return []
+    except Exception:
+        app.logger.exception("Error listing explain files")
+    return out
+
+
+@app.route("/api/explain_files", methods=["GET"])
+def api_explain_files():
+    """
+    Return JSON with the list of explain files and the latest file (if any).
+
+    Example response:
+    {
+      "ok": True,
+      "files": [{"filename":"shap_summary.png","mtime":163...}, ...],
+      "latest": {"filename":"shap_summary.png","mtime":163...} or null
+    }
+    """
+    files = _list_explain_files()
+    latest = files[0] if files else None
+    return jsonify({"ok": True, "files": files, "latest": latest})
 
 
 @app.route("/", methods=["GET"])
@@ -112,46 +160,41 @@ def index():
     # Try to detect a model and metrics
     model_path = find_model()
     metrics = {}
-    metrics_file = None
     if model_path:
+        # try to find a metrics file in reports (convention: <model>_metrics.json)
         base = os.path.basename(model_path)
-        model_name = os.path.splitext(base)[0]
-        # metrics file typically at reports/<model>_metrics.json
-        metrics_file = os.path.join(
-            os.path.dirname(os.path.dirname(model_path)),
-            "..",
-            f"{model_name}_metrics.json",
-        )
-        if os.path.exists(metrics_file):
+        name = os.path.splitext(base)[0]
+        # metrics in reports/ (sibling of reports/models)
+        candidates = [
+            os.path.join(
+                os.path.dirname(os.path.dirname(model_path)),
+                "..",
+                f"{name}_metrics.json",
+            ),
+            os.path.join("reports", f"{name}_metrics.json"),
+        ]
+        for p in candidates:
             try:
-                metrics = pd.read_json(metrics_file).to_dict()
-            except Exception:
-                try:
-                    import json
-
-                    with open(metrics_file) as fh:
+                p_abs = os.path.abspath(p)
+                if os.path.exists(p_abs):
+                    with open(p_abs, "r") as fh:
                         metrics = json.load(fh)
-                except Exception:
-                    metrics = {}
+                    break
+            except Exception:
+                app.logger.exception("Failed reading metrics file: %s", p)
     return render_template("index.html", model_path=model_path, metrics=metrics)
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    """
-    Accept JSON body with a single record (keys matching feature names)
-    or form fields (simple UI). Returns JSON with prediction & probability.
-    """
     preferred_model = request.form.get("model_path") or request.args.get("model_path")
     data = None
     if request.is_json:
         data = request.get_json()
     else:
-        # collect form keys into a dict
         data = {k: v for k, v in request.form.items() if k != "model_path"}
     try:
         wrapper = load_wrapper(preferred_model)
-        # attempt to convert to DataFrame-friendly structure
         if isinstance(data, dict):
             df = pd.DataFrame([data])
         elif isinstance(data, list):
@@ -177,10 +220,6 @@ def allowed_file(filename: str) -> bool:
 
 @app.route("/predict_batch", methods=["POST"])
 def predict_batch():
-    """
-    Accept a CSV upload with feature columns. Returns a CSV with predictions appended
-    and also stores it to reports/tmp_uploads for download.
-    """
     if "file" not in request.files:
         flash("No file part")
         return redirect(url_for("index"))
@@ -202,7 +241,6 @@ def predict_batch():
             out_df = wrapper.predict_batch(df)
             out_path = save_path.replace(".csv", "_predictions.csv")
             out_df.to_csv(out_path, index=False)
-            # return a link to download
             return send_file(
                 out_path, as_attachment=True, download_name=os.path.basename(out_path)
             )
@@ -217,22 +255,20 @@ def predict_batch():
 
 @app.route("/api/metrics", methods=["GET"])
 def api_metrics():
-    """
-    Return model metrics JSON (if present in reports/)
-    """
     model = request.args.get("model")
     metrics_path = None
     if model:
         metrics_path = os.path.join("reports", f"{model}_metrics.json")
     else:
-        # try to find any metrics file in reports
-        candidates = [p for p in os.listdir("reports") if p.endswith("_metrics.json")]
+        candidates = (
+            [p for p in os.listdir("reports") if p.endswith("_metrics.json")]
+            if os.path.isdir("reports")
+            else []
+        )
         metrics_path = os.path.join("reports", candidates[0]) if candidates else None
 
     if metrics_path and os.path.exists(metrics_path):
         try:
-            import json
-
             with open(metrics_path) as fh:
                 return jsonify({"ok": True, "metrics": json.load(fh)})
         except Exception as e:
@@ -242,10 +278,6 @@ def api_metrics():
 
 
 if __name__ == "__main__":
-    # quick dev runner
-    # optional env var DASHBOARD_MODEL to override model used
-    import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=5000, type=int)

@@ -61,10 +61,9 @@
         <h5>Visualizations</h5>
         <canvas id="riskChart" width="400" height="200"></canvas>
         <div class="mt-2">
-          <!-- serve the file in-place from reports/explain via the explain_file route -->
-          <img src="{{ url_for('explain_file', filename='shap_summary.png') }}" alt="SHAP summary (if present)" style="max-width:100%" onerror="this.style.display='none'">
-          <!-- fallback text when image missing -->
-          <div id="no-shap" class="text-muted small" {% if not model_path %}style="display:block"{% else %}style="display:none"{% endif %}>
+          <!-- Image will be set dynamically with cache-busting query param -->
+          <img id="shapImg" alt="SHAP summary (if present)" style="max-width:100%; display:none">
+          <div id="no-shap" class="text-muted small">
             SHAP summary not available yet. Generate explanations to see this visualization.
           </div>
         </div>
@@ -73,6 +72,42 @@
   </div>
 
 <script>
+async function fetchExplainFiles() {
+  try {
+    const res = await fetch('/api/explain_files');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.error('Failed to fetch explain files', e);
+    return null;
+  }
+}
+
+let currentLatest = null;
+async function updateShapImage() {
+  const payload = await fetchExplainFiles();
+  if (!payload || !payload.ok) return;
+  const latest = payload.latest;
+  if (!latest) {
+    document.getElementById('shapImg').style.display = 'none';
+    document.getElementById('no-shap').style.display = 'block';
+    return;
+  }
+  // if filename or mtime changed, update image src with cache-busting timestamp
+  if (!currentLatest || currentLatest.filename !== latest.filename || currentLatest.mtime !== latest.mtime) {
+    currentLatest = latest;
+    const img = document.getElementById('shapImg');
+    img.src = `/reports/explain/${encodeURIComponent(latest.filename)}?t=${latest.mtime}`;
+    img.style.display = 'block';
+    document.getElementById('no-shap').style.display = 'none';
+  }
+}
+
+// initial load
+updateShapImage();
+// poll every 30s
+setInterval(updateShapImage, 30_000);
+
 document.getElementById('singleForm').addEventListener('submit', async function (ev) {
   ev.preventDefault();
   const form = new FormData(this);
