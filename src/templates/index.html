@@ -19,7 +19,6 @@
       <div class="card risk-card">
         <h5>Quick single prediction</h5>
         <form id="singleForm" method="post" action="/predict">
-          <!-- Minimal example fields - you can expand to include all features from dataset -->
           <div class="mb-2">
             <label class="form-label">Glucose</label>
             <input name="Glucose" class="form-control" required>
@@ -62,7 +61,12 @@
         <h5>Visualizations</h5>
         <canvas id="riskChart" width="400" height="200"></canvas>
         <div class="mt-2">
-          <img src="{{ url_for('static', filename='img/shap_summary.png') }}" alt="SHAP summary (if present)" style="max-width:100%">
+          <!-- serve the file in-place from reports/explain via the explain_file route -->
+          <img src="{{ url_for('explain_file', filename='shap_summary.png') }}" alt="SHAP summary (if present)" style="max-width:100%" onerror="this.style.display='none'">
+          <!-- fallback text when image missing -->
+          <div id="no-shap" class="text-muted small" {% if not model_path %}style="display:block"{% else %}style="display:none"{% endif %}>
+            SHAP summary not available yet. Generate explanations to see this visualization.
+          </div>
         </div>
       </div>
     </div>
