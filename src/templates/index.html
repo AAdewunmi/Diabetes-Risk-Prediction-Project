@@ -23,344 +23,258 @@ Notes / docstring:
   <meta charset="utf-8">
   <title>Diabetes Risk Prediction Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- Local assets (ensure src/static/css & js exist) -->
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
   <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
-
   <style>
-    body { padding-top: 1.5rem; background: #f7f9fb; }
-    .card { border-radius: .6rem; box-shadow: 0 6px 18px rgba(17,24,39,0.04); }
-    .nav-tabs .nav-link { cursor: pointer; }
-    .container-max { max-width: 1100px; margin: 0 auto; }
-    .small-muted { color: #6c757d; font-size: .9rem; }
-    iframe.explain-frame { width: 100%; height: 420px; border: 1px solid #e9ecef; border-radius: .4rem; }
-    img.shap-preview { max-width: 100%; border-radius: .25rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    body { padding-top: 1.5rem; background: #f7f8fa; }
+    .card { border-radius: 0.6rem; box-shadow: 0 6px 18px rgba(0,0,0,0.04); }
+    .section-title { font-weight:600; }
+    .small-muted { font-size:.9rem; color:#6c757d; }
   </style>
 </head>
-<body>
-  <div class="container container-max">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h3">Diabetes Risk Prediction Dashboard</h1>
-      <small class="small-muted">Model: <strong id="modelPath">{{ model_path or "None found" }}</strong></small>
-    </div>
+<body class="container">
+  <h1 class="mb-4">Diabetes Risk Prediction Dashboard</h1>
 
-    <ul class="nav nav-tabs mb-3" id="dashboardTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <a class="nav-link active" id="single-tab" data-bs-toggle="tab" href="#single" role="tab" aria-controls="single" aria-selected="true">A) Single prediction</a>
-      </li>
-      <li class="nav-item" role="presentation">
-        <a class="nav-link" id="batch-tab" data-bs-toggle="tab" href="#batch" role="tab" aria-controls="batch" aria-selected="false">B) Batch CSV upload</a>
-      </li>
-      <li class="nav-item ms-auto" role="presentation">
-        <a class="nav-link" id="visual-tab" data-bs-toggle="tab" href="#visual" role="tab" aria-controls="visual" aria-selected="false">Visualisations</a>
-      </li>
-    </ul>
+  <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">Quick single prediction</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">Batch CSV upload</button>
+    </li>
+  </ul>
 
-    <div class="tab-content">
-      <!-- === Single prediction tab === -->
-      <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
-        <div class="card p-4 mb-3">
-          <h5 class="mb-3">Quick single prediction</h5>
-
-          <!-- Full feature form - includes all features used at training time -->
-          <form id="singleForm" class="row g-3" autocomplete="off">
-            <div class="col-md-3">
-              <label class="form-label" for="Pregnancies">Pregnancies</label>
-              <input id="Pregnancies" name="Pregnancies" type="number" class="form-control" value="0" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="Glucose">Glucose</label>
-              <input id="Glucose" name="Glucose" type="number" step="0.1" class="form-control" value="120" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="BloodPressure">BloodPressure</label>
-              <input id="BloodPressure" name="BloodPressure" type="number" step="0.1" class="form-control" value="70" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="SkinThickness">SkinThickness</label>
-              <input id="SkinThickness" name="SkinThickness" type="number" step="0.1" class="form-control" value="20" required>
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label" for="Insulin">Insulin</label>
-              <input id="Insulin" name="Insulin" type="number" step="0.1" class="form-control" value="85" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="BMI">BMI</label>
-              <input id="BMI" name="BMI" type="number" step="0.1" class="form-control" value="30.0" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="DiabetesPedigreeFunction">DiabetesPedigreeFunction</label>
-              <input id="DiabetesPedigreeFunction" name="DiabetesPedigreeFunction" type="number" step="0.001" class="form-control" value="0.5" required>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label" for="Age">Age</label>
-              <input id="Age" name="Age" type="number" class="form-control" value="35" required>
-            </div>
-
-            <div class="col-12 mt-2">
-              <button id="singleSubmit" type="submit" class="btn btn-primary">Predict</button>
-              <button id="singleReset" type="button" class="btn btn-outline-secondary ms-2">Reset</button>
-            </div>
-          </form>
-
-          <div id="singleResult" class="mt-3" style="display:none;">
-            <h6>Result</h6>
-            <div id="singleResultText" class="alert"></div>
-            <div class="small-muted">Full model info: <pre id="singleModelInfo" style="display:inline-block;"></pre></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- === Batch upload tab === -->
-      <div class="tab-pane fade" id="batch" role="tabpanel" aria-labelledby="batch-tab">
-        <div class="card p-4 mb-3">
-          <h5 class="mb-3">Batch CSV upload</h5>
-          <form id="batchForm" action="/predict_batch" method="post" enctype="multipart/form-data">
-            <div class="mb-3">
-              <input class="form-control" type="file" id="csvFile" name="file" accept=".csv" required>
-            </div>
-            <div class="mb-2">
-              <button id="batchSubmit" type="submit" class="btn btn-secondary">Upload & Predict</button>
-              <span class="ms-3 small-muted">CSV should include feature columns (Outcome ignored).</span>
-            </div>
-          </form>
-
-          <div id="batchStatus" class="mt-3" style="display:none;">
-            <h6>Batch result</h6>
-            <div id="batchMessage" class="alert"></div>
-            <div id="batchDownload" style="display:none;">
-              <a id="batchDownloadLink" class="btn btn-sm btn-success" href="#">Download predictions CSV</a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- === Visualisations tab === -->
-      <div class="tab-pane fade" id="visual" role="tabpanel" aria-labelledby="visual-tab">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="card p-3 mb-3">
-              <h5>Explainability - Latest interactive report</h5>
-              <div class="small-muted mb-2">Interactive report (self-contained HTML) — loads latest available</div>
-              <iframe id="explainFrame" class="explain-frame" src=""></iframe>
-              <div class="small-muted mt-2">If interactive report not available, static SHAP image shown below.</div>
-            </div>
-          </div>
-
-          <div class="col-md-6">
-            <div class="card p-3 mb-3">
-              <h5>SHAP Summary / Static visual</h5>
-              <div id="shapImageContainer" class="text-center">
-                <img id="shapImg" class="shap-preview" src="" alt="SHAP summary" style="display:none">
-                <div id="noShapMsg" class="small-muted">No SHAP image found in reports/explain yet.</div>
+  <div class="tab-content">
+    <!-- Single prediction tab -->
+    <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card p-3">
+            <div class="section-title mb-2">Enter features</div>
+            <form id="singleForm" method="post" novalidate>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Pregnancies</label>
+                  <input name="Pregnancies" class="form-control" type="number" value="0" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Glucose</label>
+                  <input name="Glucose" class="form-control" type="number" value="100" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">BloodPressure</label>
+                  <input name="BloodPressure" class="form-control" type="number" value="70" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">SkinThickness</label>
+                  <input name="SkinThickness" class="form-control" type="number" value="20" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Insulin</label>
+                  <input name="Insulin" class="form-control" type="number" value="85" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">BMI</label>
+                  <input name="BMI" class="form-control" step="0.1" type="number" value="30.5" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">DiabetesPedigreeFunction</label>
+                  <input name="DiabetesPedigreeFunction" class="form-control" step="0.001" type="number" value="0.5" required>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Age</label>
+                  <input name="Age" class="form-control" type="number" value="35" required>
+                </div>
               </div>
 
-              <hr>
-              <h6 class="mt-3">Model metrics (from reports)</h6>
-              <pre id="metricsBlock">{{ metrics | tojson(indent=2) }}</pre>
+              <div class="mt-3 d-grid">
+                <button id="singleSubmit" class="btn btn-primary">Predict</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card mt-3 p-3" id="singleResultCard" style="display:none;">
+            <div class="section-title">Result</div>
+            <div id="singleUserMessage" class="mt-2"></div>
+            <div class="mt-3">
+              <canvas id="singleProbChart" width="300" height="120"></canvas>
             </div>
+            <div class="mt-3">
+              <div class="section-title">Explainability artifacts</div>
+              <ul id="singleFilesList" class="list-unstyled small-muted"></ul>
+            </div>
+            <div class="mt-2 small-muted">This result is informational and not a medical diagnosis.</div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card p-3">
+            <div class="section-title">Model info</div>
+            <p class="small-muted mb-0">Model path: <strong id="modelPath">{{ model_path or "None found" }}</strong></p>
+            <pre id="metricsBlock" class="mt-2 small-muted">{{ metrics | tojson(indent=2) }}</pre>
+          </div>
+
+          <div class="card mt-3 p-3">
+            <div class="section-title">Latest explain files</div>
+            <p class="small-muted">Click to open in new tab. Images and HTML are served from <code>reports/explain/</code>.</p>
+            <ul id="explainList" class="list-unstyled small-muted"></ul>
           </div>
         </div>
       </div>
     </div>
 
-    <footer class="mt-4 mb-5 small-muted text-center">✅ Pipeline operations completed. Check <code>reports/</code> for logs & artifacts.</footer>
+    <!-- Batch prediction tab -->
+    <div class="tab-pane fade" id="batch" role="tabpanel" aria-labelledby="batch-tab">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card p-3">
+            <div class="section-title mb-2">Upload CSV</div>
+            <form id="batchForm" method="post" enctype="multipart/form-data" action="/predict_batch">
+              <input id="batchFile" name="file" type="file" accept=".csv" class="form-control" required>
+              <div class="mt-3 d-grid">
+                <button class="btn btn-secondary">Upload & Predict</button>
+              </div>
+            </form>
+            <div class="small-muted mt-2">CSV should contain the feature columns (Outcome column will be ignored if present).</div>
+          </div>
+
+          <div class="card mt-3 p-3" id="batchResultCard" style="display:none;">
+            <div class="section-title">Batch summary</div>
+            <div id="batchSummary" class="mt-2 small-muted"></div>
+            <div class="mt-3">
+              <canvas id="batchHist" width="300" height="140"></canvas>
+            </div>
+            <div class="mt-3">
+              <div class="section-title">Generated artifacts</div>
+              <ul id="batchFilesList" class="list-unstyled small-muted"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card p-3">
+            <div class="section-title">Notes & guidance</div>
+            <p class="small-muted">Batch predictions are processed server-side. We will drop any Outcome column included by the CSV to avoid mismatches with the model.</p>
+            <p class="small-muted">Artifacts are saved under <code>reports/explain/</code> and listed here for inspection. No download button is provided — click files to view them.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
-/* Client JS for single-page tabbed dashboard
-   Responsibilities:
-   - submit single prediction as JSON to /predict and render results
-   - allow resetting the single form
-   - handle batch upload via standard form (server returns file attachment)
-   - poll /api/explain_files to show latest explain artifacts (iframe + image) with cache-busting
-*/
-
-/* --- Helpers --- */
-async function jsonPost(url, payload) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return res;
-}
-
-/* --- Single prediction --- */
-const singleForm = document.getElementById('singleForm');
-const singleResult = document.getElementById('singleResult');
-const singleResultText = document.getElementById('singleResultText');
-const singleModelInfo = document.getElementById('singleModelInfo');
-
-singleForm.addEventListener('submit', async (ev) => {
-  ev.preventDefault();
-  const form = new FormData(singleForm);
-  const payload = {};
-  for (const [k, v] of form.entries()) {
-    // coerce numeric-like values to numbers
-    const n = Number(v);
-    payload[k] = (v === '' || Number.isNaN(n)) ? v : n;
+  // Utility to render explain file lists from server response
+  async function refreshExplainList() {
+    try {
+      const res = await fetch('/api/explain_files');
+      if (!res.ok) return;
+      const payload = await res.json();
+      if (!payload.ok) return;
+      const list = payload.files || [];
+      const el = document.getElementById('explainList');
+      el.innerHTML = '';
+      list.forEach(f => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
+        a.target = '_blank';
+        a.text = f.filename;
+        li.appendChild(a);
+        li.appendChild(document.createTextNode(` — ${new Date(f.mtime * 1000).toLocaleString()}`));
+        el.appendChild(li);
+      });
+    } catch (e) { console.error(e); }
   }
 
-  try {
-    const res = await jsonPost('/predict', payload);
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      singleResultText.className = 'alert alert-success';
-      singleResultText.textContent = `Prediction: ${JSON.stringify(data.result)}`;
-      singleModelInfo.textContent = JSON.stringify(data.model_info || {}, null, 2);
-    } else {
-      singleResultText.className = 'alert alert-danger';
-      singleResultText.textContent = data.error || 'Prediction failed';
-      singleModelInfo.textContent = '';
-    }
-  } catch (err) {
-    singleResultText.className = 'alert alert-danger';
-    singleResultText.textContent = `Request error: ${err}`;
-    singleModelInfo.textContent = '';
-  } finally {
-    singleResult.style.display = 'block';
-  }
-});
-
-document.getElementById('singleReset').addEventListener('click', () => {
-  singleForm.reset();
-  singleResult.style.display = 'none';
-  singleModelInfo.textContent = '';
-});
-
-/* --- Batch upload handling (progress shown on page) --- */
-const batchForm = document.getElementById('batchForm');
-const batchStatus = document.getElementById('batchStatus');
-const batchMessage = document.getElementById('batchMessage');
-const batchDownload = document.getElementById('batchDownload');
-const batchDownloadLink = document.getElementById('batchDownloadLink');
-
-batchForm.addEventListener('submit', async (ev) => {
-  // Use the native form submit to get the file download from the server.
-  // But we intercept to show friendly messages; then let browser handle download.
-  batchStatus.style.display = 'none';
-  batchMessage.textContent = '';
-  batchDownload.style.display = 'none';
-
-  // Allow default submission to trigger file download — but provide feedback by constructing a fetch instead
-  ev.preventDefault();
-  const files = document.getElementById('csvFile').files;
-  if (!files || files.length === 0) {
-    batchMessage.className = 'alert alert-warning';
-    batchMessage.textContent = 'No file selected';
-    batchStatus.style.display = 'block';
-    return;
-  }
-
-  const formData = new FormData(batchForm);
-  try {
-    const res = await fetch('/predict_batch', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (res.ok) {
-      // server will send a CSV file. Create a blob download link.
-      const blob = await res.blob();
-      const tmpUrl = URL.createObjectURL(blob);
-      batchDownloadLink.href = tmpUrl;
-      batchDownloadLink.download = `predictions_${Date.now()}.csv`;
-      batchDownload.style.display = 'block';
-      batchMessage.className = 'alert alert-success';
-      batchMessage.textContent = 'Batch predictions ready. Download below.';
-    } else {
-      const text = await res.text();
-      batchMessage.className = 'alert alert-danger';
-      batchMessage.textContent = `Batch failed: ${text || res.statusText}`;
-    }
-  } catch (err) {
-    batchMessage.className = 'alert alert-danger';
-    batchMessage.textContent = `Request error: ${err}`;
-  } finally {
-    batchStatus.style.display = 'block';
-  }
-});
-
-
-/* --- Explain files polling & cache-busting --- */
-let currentLatest = null;
-async function fetchExplainFiles() {
-  try {
-    const res = await fetch('/api/explain_files');
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.warn('Failed to fetch explain files', err);
-    return null;
-  }
-}
-
-async function updateExplainArtifacts() {
-  const payload = await fetchExplainFiles();
-  if (!payload || !payload.ok) return;
-
-  const latest = payload.latest;
-  // iframe priority: load interactive HTML if present (.html), else show static image.
-  if (latest) {
-    // if new file or mtime changed, update sources
-    if (!currentLatest || currentLatest.filename !== latest.filename || currentLatest.mtime !== latest.mtime) {
-      currentLatest = latest;
-      const encoded = encodeURIComponent(latest.filename);
-      const timestamp = latest.mtime || Date.now();
-
-      // If the latest is html, load into iframe with cache-busting
-      const explainFrame = document.getElementById('explainFrame');
-      if (latest.filename.toLowerCase().endsWith('.html')) {
-        explainFrame.src = `/reports/explain/${encoded}?t=${timestamp}`;
-        explainFrame.style.display = 'block';
-        // also try to update static image if exists
-        const shapImg = document.getElementById('shapImg');
-        shapImg.style.display = 'none';
-        document.getElementById('noShapMsg').style.display = 'none';
-      } else if (latest.filename.toLowerCase().match(/\.(png|jpg|jpeg|gif|svg)$/)) {
-        // static image
-        const shapImg = document.getElementById('shapImg');
-        shapImg.src = `/reports/explain/${encoded}?t=${timestamp}`;
-        shapImg.style.display = 'block';
-        document.getElementById('noShapMsg').style.display = 'none';
-        // hide iframe if it's an older html
-        document.getElementById('explainFrame').src = '';
-      } else {
-        // unknown type -> hide both
-        document.getElementById('explainFrame').src = '';
-        document.getElementById('shapImg').style.display = 'none';
-        document.getElementById('noShapMsg').style.display = 'block';
+  // Single form handling
+  document.getElementById('singleForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const form = new FormData(ev.target);
+    const payload = {};
+    form.forEach((v,k) => payload[k] = Number(v) ? Number(v) : v);
+    try {
+      const res = await fetch('/predict', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (!json.ok) {
+        alert('Prediction error: ' + (json.error || 'unknown'));
+        return;
       }
-    }
-  } else {
-    // nothing available
-    document.getElementById('explainFrame').src = '';
-    document.getElementById('shapImg').style.display = 'none';
-    document.getElementById('noShapMsg').style.display = 'block';
-  }
-}
-
-// initial load & periodic poll
-updateExplainArtifacts();
-setInterval(updateExplainArtifacts, 30_000);
-
-/* --- small accessibility: focus first field on tab show --- */
-document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
-  tab.addEventListener('shown.bs.tab', (ev) => {
-    const target = ev.target.getAttribute('href');
-    if (target === '#single') {
-      document.getElementById('Pregnancies').focus();
-    } else if (target === '#batch') {
-      document.getElementById('csvFile').focus();
-    }
+      const r = json.result;
+      // show friendly message
+      const msgEl = document.getElementById('singleUserMessage');
+      msgEl.innerHTML = `<strong>${r.user_message}</strong>`;
+      // show explain files
+      const fl = r.explanation_files || [];
+      const list = document.getElementById('singleFilesList'); list.innerHTML='';
+      fl.forEach(f => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
+        a.target = '_blank';
+        a.text = f.filename;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      // render probability chart
+      const pct = Math.round((r.probability||0) * 10000) / 100;
+      const ctx = document.getElementById('singleProbChart').getContext('2d');
+      if (window._singleChart) window._singleChart.destroy();
+      window._singleChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels:['Risk (%)'], datasets:[{ label:'Probability (%)', data:[pct], borderWidth:1 }] },
+        options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, max:100 } } }
+      });
+      document.getElementById('singleResultCard').style.display='block';
+      refreshExplainList();
+    } catch (e) { alert('Request failed: '+e); console.error(e); }
   });
-});
+
+  // Batch form: submit normally (server will return JSON or redirect); we intercept and handle JSON response
+  document.getElementById('batchForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fileInput = document.getElementById('batchFile');
+    if (!fileInput.files || !fileInput.files[0]) { alert('Please select a CSV file'); return; }
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    try {
+      const res = await fetch('/predict_batch', { method:'POST', body: fd });
+      const json = await res.json();
+      if (!json.ok) {
+        alert('Batch error: ' + (json.error || 'unknown'));
+        return;
+      }
+      const r = json.result;
+      const summary = `Rows processed: ${r.n_rows}. Predicted positives: ${r.n_positive}. Average risk: ${(r.mean_probability*100).toFixed(2)}%.`;
+      document.getElementById('batchSummary').textContent = summary;
+      // histogram
+      const ctx = document.getElementById('batchHist').getContext('2d');
+      if (window._batchChart) window._batchChart.destroy();
+      window._batchChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: r.hist_bins, datasets: [{ label:'Count', data: r.hist_counts }] },
+        options: {}
+      });
+      // show artifact list
+      const list = document.getElementById('batchFilesList'); list.innerHTML='';
+      (r.explanation_files || []).forEach(f=>{
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
+        a.target = '_blank'; a.text = f.filename;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      document.getElementById('batchResultCard').style.display='block';
+      refreshExplainList();
+    } catch (e) { alert('Batch request failed: '+e); console.error(e); }
+  });
+
+  // initial explain list
+  refreshExplainList();
+  setInterval(refreshExplainList, 30_000);
 </script>
 
-<!-- Bootstrap JS (requires Popper) - include local files in src/static/js or use CDN -->
+<!-- Bootstrap bundle (local or CDN fallback if missing) -->
 <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>
