@@ -1,0 +1,9 @@
+feature,importance_mean,importance_std
+Pregnancies,0.0,0.0
+Glucose,0.2,0.24494897427831783
+BloodPressure,0.0,0.0
+SkinThickness,0.0,0.0
+Insulin,0.0,0.0
+BMI,0.0,0.0
+DiabetesPedigreeFunction,0.0,0.0
+Age,0.0,0.0

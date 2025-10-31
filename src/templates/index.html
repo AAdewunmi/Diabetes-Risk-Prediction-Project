@@ -87,9 +87,14 @@ Notes / docstring:
                 </div>
               </div>
 
+              <!-- add Reset button next to Predict (inside form) -->
               <div class="mt-3 d-grid">
-                <button id="singleSubmit" class="btn btn-primary">Predict</button>
+                <div class="d-flex gap-2">
+                  <button id="singleSubmit" class="btn btn-primary flex-grow-1">Predict</button>
+                  <button id="singleReset" type="button" class="btn btn-outline-secondary">Reset</button>
+                </div>
               </div>
+
             </form>
           </div>
 
@@ -268,6 +273,25 @@ Notes / docstring:
       refreshExplainList();
     } catch (e) { alert('Batch request failed: '+e); console.error(e); }
   });
+
+  // Single form: Reset button handler
+  // Reset form handler: restores sample defaults and hides result card
+document.getElementById('singleReset').addEventListener('click', () => {
+  const defaults = {
+    Pregnancies: 0, Glucose: 100, BloodPressure: 70, SkinThickness: 20,
+    Insulin: 85, BMI: 30.5, DiabetesPedigreeFunction: 0.5, Age: 35
+  };
+  const form = document.getElementById('singleForm');
+  Object.entries(defaults).forEach(([k, v]) => {
+    const el = form.elements.namedItem(k);
+    if (el) el.value = v;
+  });
+  // hide previous results
+  const resultCard = document.getElementById('singleResultCard');
+  if (resultCard) resultCard.style.display = 'none';
+  if (window._singleChart) { try { window._singleChart.destroy(); } catch (e) {} }
+});
+
 
   // initial explain list
   refreshExplainList();

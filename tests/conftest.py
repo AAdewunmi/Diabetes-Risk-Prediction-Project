@@ -1,26 +1,21 @@
-# tests/conftest.py
 """
-Central pytest fixtures for the Diabetes-Risk-Prediction-Project tests.
+tests/conftest.py
 
-Organization:
-- Section A: Shared pipeline fixtures (data, tiny DataFrame, trained pipeline, saved model)
-- Section B: Dashboard / Flask fixtures (app, client)
-- Section C: Utility fixtures (temporary reports dir, sample CSV writer wrapper)
+Unified fixtures for pipeline and dashboard tests.
 
-Fixture naming uses clear prefixes to avoid collisions:
- - pipeline_* for pipeline-related fixtures
- - dashboard_* for Flask/dashboard fixtures
- - tmp_* for temporary filesystem directories
-
-Scope choices:
- - session: expensive or stable setup (tiny dataset file, trained pipeline)
- - function/module: per-test isolation where appropriate (test client, tmp directories)
+Fixtures:
+- tiny_dataset_path (session) -> path to small CSV
+- tiny_df -> DataFrame loaded from the tiny CSV
+- trained_pipeline (session) -> sklearn Pipeline (StandardScaler + LogisticRegression)
+- saved_model_path (session) -> joblib path to saved trained pipeline
+- sample_csv_path (function) -> small CSV for upload tests
+- client (function) -> Flask test client (uses dashboard_app)
+- dashboard_app (module) -> Flask app instance
 """
 
 import os
 import sys
 from pathlib import Path
-from typing import Generator
 
 import joblib
 import numpy as np
@@ -43,59 +38,45 @@ os.environ.setdefault(
     os.pathsep.join(filter(None, [os.environ.get("PYTHONPATH", ""), ROOT_STR])),
 )
 
-# -------------------------------
-# Section A: Shared pipeline fixtures
-# -------------------------------
-
 
 @pytest.fixture(scope="session")
-def pipeline_tiny_dataset_path(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """
-    Create a small deterministic CSV dataset used across pipeline tests.
-    Session-scoped to avoid re-creating the file repeatedly.
-    """
+def tiny_dataset_path(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Creates a small CSV dataset for quick training/testing."""
     rng = np.random.RandomState(0)
     n = 40
     df = pd.DataFrame(
         {
-            "Pregnancies": rng.randint(0, 10, size=n),
-            "Glucose": rng.normal(100, 15, size=n).round(1),
-            "BloodPressure": rng.normal(70, 10, size=n).round(1),
-            "SkinThickness": rng.normal(20, 5, size=n).round(1),
-            "Insulin": rng.normal(80, 30, size=n).round(1),
-            "BMI": (rng.normal(30, 5, size=n)).round(2),
-            "DiabetesPedigreeFunction": (rng.rand(n) * 1).round(3),
-            "Age": rng.randint(21, 80, size=n),
-            "Outcome": rng.randint(0, 2, size=n),
+            "Pregnancies": rng.randint(0, 10, n),
+            "Glucose": rng.randint(70, 200, n),
+            "BloodPressure": rng.randint(50, 100, n),
+            "SkinThickness": rng.randint(10, 50, n),
+            "Insulin": rng.randint(0, 300, n),
+            "BMI": rng.uniform(18.0, 45.0, n),
+            "DiabetesPedigreeFunction": rng.uniform(0.05, 1.5, n),
+            "Age": rng.randint(20, 70, n),
+            "Outcome": rng.randint(0, 2, n),
         }
     )
-    d = tmp_path_factory.mktemp("data")
-    p = d / "tiny_diabetes.csv"
+    p = tmp_path_factory.mktemp("data") / "tiny_data.csv"
     df.to_csv(p, index=False)
     return str(p)
 
 
-@pytest.fixture
-def pipeline_tiny_df(pipeline_tiny_dataset_path: str) -> pd.DataFrame:
-    """Load the tiny CSV into a DataFrame for tests that need it as a DataFrame."""
-    return pd.read_csv(pipeline_tiny_dataset_path)
+@pytest.fixture(scope="session")
+def tiny_df(tiny_dataset_path: str) -> pd.DataFrame:
+    """Loads the tiny CSV dataset into a DataFrame."""
+    return pd.read_csv(tiny_dataset_path)
 
 
 @pytest.fixture(scope="session")
-def pipeline_trained_model(pipeline_tiny_df: pd.DataFrame) -> Pipeline:
-    """
-    Train and return a lightweight sklearn Pipeline (StandardScaler + LogisticRegression).
-    Session scope because training is fast but deterministic and reused by many tests.
-    """
-    X = pipeline_tiny_df.drop(columns=["Outcome"])
-    y = pipeline_tiny_df["Outcome"]
+def trained_pipeline(tiny_df: pd.DataFrame) -> Pipeline:
+    """Trains a simple pipeline for session reuse."""
+    X = tiny_df.drop("Outcome", axis=1)
+    y = tiny_df["Outcome"]
     pipeline = Pipeline(
         [
             ("scaler", StandardScaler()),
-            (
-                "clf",
-                LogisticRegression(solver="liblinear", max_iter=1000, random_state=42),
-            ),
+            ("classifier", LogisticRegression(random_state=0, max_iter=1000)),
         ]
     )
     pipeline.fit(X, y)
@@ -103,61 +84,24 @@ def pipeline_trained_model(pipeline_tiny_df: pd.DataFrame) -> Pipeline:
 
 
 @pytest.fixture(scope="session")
-def pipeline_saved_model_path(
-    pipeline_trained_model: Pipeline, tmp_path_factory: pytest.TempPathFactory
+def saved_model_path(
+    tmp_path_factory: pytest.TempPathFactory, trained_pipeline: Pipeline
 ) -> str:
-    """Dump the trained pipeline to a joblib file and return its path (session-scoped)."""
-    d = tmp_path_factory.mktemp("models")
-    p = d / "model.joblib"
-    joblib.dump(pipeline_trained_model, str(p))
+    """Saves the trained pipeline to a temporary file path."""
+    p = tmp_path_factory.mktemp("models") / "model_v1.joblib"
+    joblib.dump(trained_pipeline, p)
     return str(p)
 
 
-# -------------------------------
-# Section B: Dashboard / Flask fixtures
-# -------------------------------
-
-
-@pytest.fixture(scope="module")
-def dashboard_app() -> "Flask":
-    """
-    Import and return the Flask app object from src/dashboard/app.py
-
-    Scope: module (tests within a module can reuse the app instance).
-    """
-    # Ensure src/ is on sys.path (already inserted above) then import
-    from dashboard.app import app as flask_app
-
-    # Minimal test config overrides
-    flask_app.config["TESTING"] = True
-    flask_app.config["WTF_CSRF_ENABLED"] = False
-    # Use an isolated upload folder under tmp for tests
-    temp_uploads = Path(os.getenv("TMPDIR", "/tmp")) / "tests_dashboard_uploads"
-    temp_uploads.mkdir(parents=True, exist_ok=True)
-    flask_app.config.setdefault("UPLOAD_FOLDER", str(temp_uploads))
-    return flask_app
-
-
 @pytest.fixture
-def dashboard_client(dashboard_app) -> Generator:
-    """Provide Flask test client for route testing."""
-    with dashboard_app.test_client() as client:
-        yield client
-
-
-# -------------------------------
-# Section C: Utility / filesystem fixtures
-# -------------------------------
-
-
-@pytest.fixture
-def tmp_reports_dir(tmp_path: Path) -> str:
+def temp_reports_dir(tmp_path: Path) -> str:
     """A temporary reports directory for tests to write artifacts into."""
     d = tmp_path / "reports"
     d.mkdir(exist_ok=True)
     return str(d)
 
 
+# NOTE: Keeping the function-scoped version of sample_csv_path
 @pytest.fixture(scope="function")
 def sample_csv_path(tmp_path: Path) -> str:
     """
@@ -180,28 +124,41 @@ def sample_csv_path(tmp_path: Path) -> str:
     return str(p)
 
 
-@pytest.fixture
-def client():
-    # ensures the Flask app is importable
-    import sys
-
+@pytest.fixture(scope="module")
+def dashboard_app() -> "Flask":
+    """
+    Import and return the Flask app object from src/dashboard/app.py.
+    The Flask object is needed for creating the client.
+    """
+    # ensure src import works
     sys.path.insert(0, os.path.join(ROOT, "src"))
     from dashboard.app import app
 
-    app.config["TESTING"] = True
-    with app.test_client() as c:
+    return app
+
+
+# NOTE: Keeping the simpler version of client
+@pytest.fixture
+def client(saved_model_path: str, dashboard_app: Flask):
+    """
+    Creates a Flask test client configured for the dashboard app.
+    It injects the path to the saved model as an environment variable.
+    """
+    # Set the model path environment variable before creating the client
+    os.environ["DASHBOARD_MODEL"] = saved_model_path
+
+    dashboard_app.config["TESTING"] = True
+
+    with dashboard_app.test_client() as c:
         yield c
 
+    # Clean up the environment variable
+    del os.environ["DASHBOARD_MODEL"]
+
 
 # -------------------------------
-# Small helper importable within tests
-# -------------------------------
-@pytest.fixture(scope="session")
-def helpers_module():
-    """
-    Expose utility helpers (keeps heavy imports out of top-level test files).
-    Tests can import from this fixture: e.g. use `helpers = request.getfixturevalue('helpers_module')`
-    """
-    import tests.helpers as helpers
+# Small helper import
 
-    return helpers
+# We explicitly need the Flask import above to satisfy the type hint
+# def dashboard_app() -> "Flask":
+# The use of the string "Flask" prevents a circular import in other fixtures.
