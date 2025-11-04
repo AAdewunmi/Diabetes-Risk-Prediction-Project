@@ -1,19 +1,9 @@
 <!--
 Path: src/templates/index.html
-Purpose: Two-tab dashboard:
-  - Tab A: Quick single prediction (Enter features | Results | Notes & guidance)
-  - Tab B: Batch CSV upload (Upload CSV | Batch summary | Notes & guidance)
-
-Contract (back-end expectations):
-  POST /predict         -> { ok: bool, result: { prediction:int, probability:float, user_message:str, explanation_files:[{filename,mtime}] } }
-  POST /predict_batch   -> { ok: bool, result: { n_rows:int, n_positive:int, mean_probability:float,
-                                                 hist_bins:array, hist_counts:array,
-                                                 explanation_files:[{filename,mtime}] } }
-
-Notes:
-  - Each panel is self-contained (no global model info or global latest files).
-  - Artifact links include cache-busting query (?t=<mtime>).
-  - Friendly, non-technical user message displayed for single prediction.
+Purpose: Two-tab Flask dashboard UI for Diabetes Risk Prediction
+  - Quick single prediction (form → results → notes)
+  - Batch CSV upload (upload → batch summary with histogram → artifacts → notes)
+Dependencies: Bootstrap 5, Chart.js
 -->
 
 <!doctype html>
@@ -22,7 +12,7 @@ Notes:
   <meta charset="utf-8">
   <title>Diabetes Risk Prediction Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
 
   <style>
@@ -32,151 +22,131 @@ Notes:
     .small-muted { font-size: .92rem; color: #6c757d; }
     .result-ok { color:#155724; }
     .result-err { color:#721c24; }
+
+    /* Charts live in a fixed-height box so they never squash the artifacts list */
+    .chart-wrap { height: 260px; margin-bottom: 1rem; }
+    .artifacts-list { max-height: 220px; overflow: auto; padding-left: 1rem; }
+
+    /* Make sure canvas doesn't auto-expand height */
+    canvas { width:100%!important; height:100%!important; display:block; }
   </style>
 </head>
 <body class="container">
   <h1 class="mb-4">Diabetes Risk Prediction Dashboard</h1>
 
+  <!-- Navigation tabs -->
   <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+      <button class="nav-link active" id="single-tab" data-bs-toggle="tab"
+              data-bs-target="#single" type="button" role="tab">
         Quick single prediction
       </button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">
+      <button class="nav-link" id="batch-tab" data-bs-toggle="tab"
+              data-bs-target="#batch" type="button" role="tab">
         Batch CSV upload
       </button>
     </li>
   </ul>
 
   <div class="tab-content">
-    <!-- ======================== TAB A — QUICK SINGLE PREDICTION ======================== -->
+
+    <!-- ============== TAB A: Quick single prediction ============== -->
     <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
       <div class="row">
-        <!-- (a) Enter features -->
+        <!-- (a) Input form -->
         <div class="col-md-6">
           <div class="card p-3">
             <div class="section-title mb-2">Enter features</div>
-            <form id="singleForm" method="post" novalidate>
+            <form id="singleForm" novalidate>
               <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label">Pregnancies</label>
-                  <input name="Pregnancies" class="form-control" type="number" value="0" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Glucose</label>
-                  <input name="Glucose" class="form-control" type="number" value="100" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">BloodPressure</label>
-                  <input name="BloodPressure" class="form-control" type="number" value="70" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">SkinThickness</label>
-                  <input name="SkinThickness" class="form-control" type="number" value="20" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Insulin</label>
-                  <input name="Insulin" class="form-control" type="number" value="85" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">BMI</label>
-                  <input name="BMI" class="form-control" step="0.1" type="number" value="30.5" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">DiabetesPedigreeFunction</label>
-                  <input name="DiabetesPedigreeFunction" class="form-control" step="0.001" type="number" value="0.5" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Age</label>
-                  <input name="Age" class="form-control" type="number" value="35" required>
-                </div>
+                <div class="col-6"><label class="form-label">Pregnancies</label><input name="Pregnancies" class="form-control" type="number" value="0"></div>
+                <div class="col-6"><label class="form-label">Glucose</label><input name="Glucose" class="form-control" type="number" value="100"></div>
+                <div class="col-6"><label class="form-label">BloodPressure</label><input name="BloodPressure" class="form-control" type="number" value="70"></div>
+                <div class="col-6"><label class="form-label">SkinThickness</label><input name="SkinThickness" class="form-control" type="number" value="20"></div>
+                <div class="col-6"><label class="form-label">Insulin</label><input name="Insulin" class="form-control" type="number" value="85"></div>
+                <div class="col-6"><label class="form-label">BMI</label><input name="BMI" class="form-control" step="0.1" type="number" value="30.5"></div>
+                <div class="col-6"><label class="form-label">DiabetesPedigreeFunction</label><input name="DiabetesPedigreeFunction" class="form-control" step="0.001" type="number" value="0.5"></div>
+                <div class="col-6"><label class="form-label">Age</label><input name="Age" class="form-control" type="number" value="35"></div>
               </div>
-              <div class="mt-3 d-grid">
-                <div class="d-flex gap-2">
-                  <button id="singleSubmit" class="btn btn-primary flex-grow-1">Predict</button>
-                  <button id="singleReset" type="button" class="btn btn-outline-secondary">Reset</button>
-                </div>
+              <div class="mt-3 d-flex gap-2">
+                <button id="singleSubmit" class="btn btn-primary flex-grow-1">Predict</button>
+                <button id="singleReset" type="button" class="btn btn-outline-secondary">Reset</button>
               </div>
             </form>
           </div>
         </div>
 
-        <!-- (b) Results (with artifacts & timestamps) -->
+        <!-- (b) Results -->
         <div class="col-md-6">
           <div class="card p-3" id="singleResultCard" style="display:none;">
             <div class="section-title">Results</div>
             <div id="singleUserMessage" class="mt-2"></div>
 
-            <div class="mt-3">
-              <canvas id="singleProbChart" width="340" height="130" aria-label="Probability chart"></canvas>
-            </div>
+            <div class="chart-wrap mt-3"><canvas id="singleProbChart" aria-label="Probability chart"></canvas></div>
 
-            <div class="mt-3">
+            <div class="mt-2">
               <div class="section-title">Explainability artifacts</div>
-              <ul id="singleFilesList" class="list-unstyled small-muted"></ul>
-            </div>
-
-            <div class="mt-2 small-muted">
-              <em>Timestamp reflects when each artifact file was last modified on the server.</em>
+              <ul id="singleFilesList" class="list-unstyled small-muted artifacts-list"></ul>
+              <div class="small-muted"><em>Timestamps reflect when each artifact file was last modified on the server.</em></div>
             </div>
           </div>
         </div>
 
-        <!-- (c) Notes & guidance -->
+        <!-- (c) Notes -->
         <div class="col-12 mt-3">
           <div class="card p-3">
             <div class="section-title">Notes & guidance</div>
             <ul class="small-muted mb-0">
-              <li>This is not a medical diagnosis. It’s an informational estimate to support your health awareness.</li>
+              <li>This is not a medical diagnosis — it’s an informational estimate to support awareness.</li>
               <li>For personalised advice, please consult a medical professional.</li>
-              <li>Ensure the values you enter are realistic; unusual or extreme values may affect reliability.</li>
+              <li>Use realistic values; extreme entries may reduce reliability.</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ======================== TAB B — BATCH CSV UPLOAD ======================== -->
+    <!-- ============== TAB B: Batch CSV upload ============== -->
     <div class="tab-pane fade" id="batch" role="tabpanel" aria-labelledby="batch-tab">
       <div class="row">
         <!-- (a) Upload CSV -->
         <div class="col-md-6">
           <div class="card p-3">
             <div class="section-title mb-2">Upload CSV</div>
-            <form id="batchForm" method="post" enctype="multipart/form-data" action="/predict_batch">
-              <input id="batchFile" name="file" type="file" accept=".csv" class="form-control" required>
-              <div class="mt-3 d-grid">
-                <button class="btn btn-secondary">Upload & Predict</button>
+            <form id="batchForm" enctype="multipart/form-data">
+              <input id="batchCsvInput" name="file" type="file" accept=".csv" class="form-control" required>
+              <div class="mt-3 d-flex gap-2">
+                <button id="batchUploadBtn" class="btn btn-secondary flex-grow-1">Upload & Predict</button>
+                <button id="batchResetBtn" type="button" class="btn btn-outline-secondary">Reset</button>
               </div>
             </form>
-            <div class="small-muted mt-2">CSV should contain the feature columns (if an <code>Outcome</code> column is included, it will be ignored).</div>
+            <div class="small-muted mt-2">
+              CSV should contain the feature columns (if an <code>Outcome</code> column is included, it will be ignored).
+            </div>
           </div>
         </div>
 
-        <!-- (b) Batch summary (with artifacts & timestamps) -->
+        <!-- (b) Batch summary + artifacts -->
         <div class="col-md-6">
           <div class="card p-3" id="batchResultCard" style="display:none;">
             <div class="section-title">Batch summary</div>
-            <div id="batchSummary" class="mt-2 small-muted"></div>
+            <div id="batchSummaryText" class="mt-2 small-muted"></div>
 
-            <div class="mt-3">
-              <canvas id="batchHist" width="340" height="140" aria-label="Batch histogram"></canvas>
+            <div class="chart-wrap mt-3">
+              <canvas id="batchHistCanvas" aria-label="Batch histogram"></canvas>
             </div>
 
-            <div class="mt-3">
+            <div class="mt-2">
               <div class="section-title">Generated artifacts</div>
-              <ul id="batchFilesList" class="list-unstyled small-muted"></ul>
-            </div>
-
-            <div class="mt-2 small-muted">
-              <em>Timestamps reflect when each artifact file was last modified on the server.</em>
+              <ul id="batchFilesList" class="list-unstyled small-muted artifacts-list"></ul>
+              <div class="small-muted"><em>Timestamps reflect when each artifact file was last modified on the server.</em></div>
             </div>
           </div>
         </div>
 
-        <!-- (c) Notes & guidance -->
+        <!-- (c) Notes -->
         <div class="col-12 mt-3">
           <div class="card p-3">
             <div class="section-title">Notes & guidance</div>
@@ -191,157 +161,173 @@ Notes:
     </div>
   </div>
 
-<script>
-  // ---------- Single prediction ----------
-  document.getElementById('singleForm').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const form = new FormData(ev.target);
-    const payload = {};
-    form.forEach((v,k) => payload[k] = v === '' ? null : Number(v));
+  <!-- ============== SCRIPTS ============== -->
+  <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 
-    try {
-      const res = await fetch('/predict', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json();
+  <script>
+    // -------- Utilities --------
+    function toLocalFromMaybeUnix(mtime) {
+      if (!mtime) return 'unknown';
+      // Accept seconds or ms; treat values < 10^12 as seconds.
+      const ts = Number(mtime);
+      const ms = ts < 1e12 ? ts * 1000 : ts;
+      try { return new Date(ms).toLocaleString(); } catch { return 'unknown'; }
+    }
 
-      if (!json.ok) {
-        const errMsg = json.error || 'Unknown error';
-        showSingleError('Prediction error: ' + errMsg);
-        return;
-      }
+    function populateFilesList(ulEl, files) {
+      ulEl.innerHTML = '';
+      if (files && files.length) {
+        files.forEach(f => {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime || Date.now()}`;
+          a.textContent = f.filename;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          li.appendChild(a);
 
-      const r = json.result || {};
-      const pct = r.probability != null ? Math.round(r.probability * 10000)/100 : null;
+          const ts = document.createElement('span');
+          ts.textContent = ` — ${toLocalFromMaybeUnix(f.mtime)}`;
+          li.appendChild(ts);
 
-      // Friendly message
-      const msgEl = document.getElementById('singleUserMessage');
-      if (pct != null) {
-        msgEl.innerHTML =
-          `<p class="mb-1 result-ok"><strong>Based on the details you shared, our model estimates a <u>${pct}%</u> chance of diabetes risk.</strong></p>
-           <p class="mb-0 small-muted">This isn’t a medical diagnosis—please consult a clinician for personalised advice.</p>`;
+          ulEl.appendChild(li);
+        });
       } else {
-        msgEl.innerHTML = `<p class="result-err"><strong>We couldn’t compute a probability for this input.</strong></p>`;
-      }
-
-      // Chart
-      const ctx = document.getElementById('singleProbChart').getContext('2d');
-      if (window._singleChart) window._singleChart.destroy();
-      window._singleChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Risk (%)'],
-          datasets: [{ label: 'Probability (%)', data: [pct ?? 0], borderWidth: 1 }]
-        },
-        options: { indexAxis:'y', scales: { x: { beginAtZero: true, max: 100 } } }
-      });
-
-      // Artifact list (with timestamps)
-      const list = document.getElementById('singleFilesList'); list.innerHTML = '';
-      const files = Array.isArray(r.explanation_files) ? r.explanation_files : [];
-      files.forEach(f => {
         const li = document.createElement('li');
-        const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : 'unknown time';
-        const a = document.createElement('a');
-        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime ?? Date.now()}`;
-        a.target = '_blank';
-        a.text = f.filename;
-        li.appendChild(a);
-        li.appendChild(document.createTextNode(` — ${when}`));
-        list.appendChild(li);
-      });
-
-      document.getElementById('singleResultCard').style.display = 'block';
-    } catch (e) {
-      showSingleError('Request failed: ' + e);
-      console.error(e);
+        li.textContent = 'No artifacts found yet.';
+        ulEl.appendChild(li);
+      }
     }
-  });
 
-  function showSingleError(msg) {
-    const msgEl = document.getElementById('singleUserMessage');
-    msgEl.innerHTML = `<p class="result-err"><strong>${msg}</strong></p>`;
-    document.getElementById('singleResultCard').style.display = 'block';
-    if (window._singleChart) try { window._singleChart.destroy(); } catch {}
-  }
+    // Try the canonical endpoint first; if it 404s, try the legacy alias.
+    async function fetchExplainFiles() {
+      async function hit(path) {
+        const res = await fetch(path);
+        if (!res.ok) return null;
+        return res.json();
+      }
+      try {
+        const primary = await hit('/api/explain_files');
+        if (primary && primary.ok) return primary;
+        const fallback = await hit('/api_explain_files');
+        return fallback && fallback.ok ? fallback : { ok:false, files:[], latest:null };
+      } catch {
+        return { ok:false, files:[], latest:null };
+      }
+    }
 
-  // Reset button: restore defaults & hide result
-  document.getElementById('singleReset').addEventListener('click', () => {
-    const defaults = {
-      Pregnancies: 0, Glucose: 100, BloodPressure: 70, SkinThickness: 20,
-      Insulin: 85, BMI: 30.5, DiabetesPedigreeFunction: 0.5, Age: 35
-    };
-    const form = document.getElementById('singleForm');
-    Object.entries(defaults).forEach(([k, v]) => {
-      const el = form.elements.namedItem(k);
-      if (el) el.value = v;
+    // ---------- Single prediction ----------
+    let singleChart = null;
+    document.getElementById('singleForm').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const payload = {};
+      new FormData(ev.target).forEach((v,k)=>payload[k]=v===''?null:Number(v));
+
+      try {
+        const res = await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const j = await res.json();
+        if(!j.ok) throw new Error(j.error||'Prediction failed');
+        const r=j.result||{};
+        const pct=r.probability!=null?(r.probability*100).toFixed(2):null;
+
+        const msgEl=document.getElementById('singleUserMessage');
+        msgEl.innerHTML=pct
+          ? `<p class="result-ok"><strong>Based on your inputs, estimated risk is ${pct}%.</strong></p><p class="small-muted mb-0">This is not a medical diagnosis—consult your clinician for advice.</p>`
+          : `<p class="result-err"><strong>Prediction unavailable.</strong></p>`;
+
+        // chart
+        const ctx=document.getElementById('singleProbChart').getContext('2d');
+        if(singleChart) singleChart.destroy();
+        singleChart=new Chart(ctx,{
+          type:'bar',
+          data:{labels:['Risk (%)'],datasets:[{label:'Probability (%)',data:[pct||0],borderWidth:1}]},
+          options:{indexAxis:'y',maintainAspectRatio:false,scales:{x:{beginAtZero:true,max:100}}}
+        });
+
+        // artifacts (prefer payload → fallback API)
+        const filesFromResult = Array.isArray(r.explanation_files) ? r.explanation_files : [];
+        if (filesFromResult.length) {
+          populateFilesList(document.getElementById('singleFilesList'), filesFromResult);
+        } else {
+          const api = await fetchExplainFiles();
+          populateFilesList(document.getElementById('singleFilesList'), api.ok ? api.files : []);
+        }
+
+        document.getElementById('singleResultCard').style.display='block';
+      } catch(e) {
+        document.getElementById('singleUserMessage').innerHTML=`<p class="result-err"><strong>${e.message}</strong></p>`;
+        document.getElementById('singleResultCard').style.display='block';
+      }
     });
-    const card = document.getElementById('singleResultCard');
-    if (card) card.style.display = 'none';
-    if (window._singleChart) try { window._singleChart.destroy(); } catch {}
-  });
 
-  // ---------- Batch prediction ----------
-  document.getElementById('batchForm').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const fileInput = document.getElementById('batchFile');
-    if (!fileInput.files || !fileInput.files[0]) { alert('Please select a CSV file'); return; }
+    document.getElementById('singleReset').addEventListener('click',()=>{
+      const defaults={Pregnancies:0,Glucose:100,BloodPressure:70,SkinThickness:20,Insulin:85,BMI:30.5,DiabetesPedigreeFunction:0.5,Age:35};
+      const form=document.getElementById('singleForm');
+      for(const[k,v]of Object.entries(defaults)){const el=form.elements.namedItem(k);if(el)el.value=v;}
+      if(singleChart) singleChart.destroy();
+      document.getElementById('singleResultCard').style.display='none';
+    });
 
-    const fd = new FormData();
-    fd.append('file', fileInput.files[0]);
-
-    try {
-      const res = await fetch('/predict_batch', { method: 'POST', body: fd });
-      const json = await res.json();
-
-      if (!json.ok) {
-        alert('Batch error: ' + (json.error || 'unknown'));
-        return;
-      }
-
-      const r = json.result || {};
-      const avg = r.mean_probability != null ? (r.mean_probability * 100).toFixed(2) : 'N/A';
-      const summary = `Rows processed: ${r.n_rows ?? 0}. Predicted positives: ${r.n_positive ?? 0}. Average risk: ${avg}%.`;
-      document.getElementById('batchSummary').textContent = summary;
-
-      // Chart (histogram)
-      const labels = Array.isArray(r.hist_bins) ? r.hist_bins : [];
-      const counts = Array.isArray(r.hist_counts) ? r.hist_counts : [];
-      const ctx = document.getElementById('batchHist').getContext('2d');
-      if (window._batchChart) window._batchChart.destroy();
-      window._batchChart = new Chart(ctx, {
-        type: 'bar',
-        data: { labels: labels, datasets: [{ label: 'Count', data: counts, borderWidth: 1 }] },
-        options: { scales: { y: { beginAtZero: true } } }
+    // ---------- Batch upload ----------
+    let batchChart=null;
+    function renderBatchHistogram(hist){
+      const edges=hist?.bin_edges||[], counts=hist?.counts||[];
+      const labels=[];
+      for(let i=0;i+1<edges.length;i++){ labels.push(`${edges[i].toFixed(1)}–${edges[i+1].toFixed(1)}`); }
+      const ctx=document.getElementById('batchHistCanvas').getContext('2d');
+      if(batchChart) batchChart.destroy();
+      batchChart=new Chart(ctx,{
+        type:'bar',
+        data:{labels,datasets:[{label:'Count',data:counts,borderWidth:1}]},
+        options:{maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
       });
-
-      // Artifact list (with timestamps)
-      const list = document.getElementById('batchFilesList'); list.innerHTML = '';
-      const files = Array.isArray(r.explanation_files) ? r.explanation_files : [];
-      files.forEach(f => {
-        const li = document.createElement('li');
-        const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : 'unknown time';
-        const a = document.createElement('a');
-        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime ?? Date.now()}`;
-        a.target = '_blank';
-        a.text = f.filename;
-        li.appendChild(a);
-        li.appendChild(document.createTextNode(` — ${when}`));
-        list.appendChild(li);
-      });
-
-      document.getElementById('batchResultCard').style.display = 'block';
-    } catch (e) {
-      alert('Batch request failed: ' + e);
-      console.error(e);
     }
-  });
-</script>
 
-<!-- Local Bootstrap bundle (after content) -->
- <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
-<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    document.getElementById('batchForm').addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      const file=document.getElementById('batchCsvInput').files[0];
+      if(!file){ alert('Please select a CSV file'); return; }
+      const fd=new FormData(); fd.append('file',file);
+
+      const btn=document.getElementById('batchUploadBtn'); btn.disabled=true;
+      try{
+        const res=await fetch('/predict_batch',{method:'POST',body:fd});
+        const j=await res.json();
+        if(!j.ok) throw new Error(j.error||'Batch prediction failed');
+
+        const r=j.result||{};
+        const rows=r.n_rows ?? 0;
+        const avg = r.mean_probability != null ? (r.mean_probability*100).toFixed(2)+'%' : 'N/A';
+        document.getElementById('batchSummaryText').textContent = `Rows processed: ${rows}. Average risk: ${avg}.`;
+        renderBatchHistogram(r.histogram||{});
+
+        // Artifacts: prefer response payload; else call API (with dual-path fallback)
+        let files = Array.isArray(r.explanation_files) ? r.explanation_files : [];
+        if (!files.length) {
+          const api = await fetchExplainFiles();
+          files = api.ok ? api.files : [];
+        }
+        populateFilesList(document.getElementById('batchFilesList'), files);
+
+        document.getElementById('batchResultCard').style.display='block';
+      } catch(e) {
+        document.getElementById('batchSummaryText').textContent=`Error: ${e.message}`;
+        populateFilesList(document.getElementById('batchFilesList'), []);
+        document.getElementById('batchResultCard').style.display='block';
+      } finally {
+        btn.disabled=false;
+      }
+    });
+
+    document.getElementById('batchResetBtn').addEventListener('click',()=>{
+      const input=document.getElementById('batchCsvInput');
+      input.value='';
+      if(batchChart){ batchChart.destroy(); batchChart=null; }
+      document.getElementById('batchFilesList').innerHTML='';
+      document.getElementById('batchSummaryText').textContent='';
+      document.getElementById('batchResultCard').style.display='none';
+    });
+  </script>
 </body>
 </html>
