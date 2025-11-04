@@ -1,20 +1,19 @@
 <!--
 Path: src/templates/index.html
-Purpose: Single-page dashboard with Bootstrap tabs for:
-  - Quick single prediction (Tab A)
-  - Batch CSV upload + results (Tab B)
+Purpose: Two-tab dashboard:
+  - Tab A: Quick single prediction (Enter features | Results | Notes & guidance)
+  - Tab B: Batch CSV upload (Upload CSV | Batch summary | Notes & guidance)
 
-Notes / docstring:
-- Uses the existing Flask endpoints:
-    POST /predict         -> expects JSON or form; returns JSON { ok, result, ... }
-    POST /predict_batch   -> expects multipart/form-data file upload; returns attachment
-    GET  /api/explain_files -> returns JSON listing explain artifacts { ok, files, latest }
-    GET  /reports/explain/<filename> -> serves explain assets from reports/explain
-- Cache-busting: latest explain image / iframe loaded with ?t=<mtime> or Date.now()
-- Testing recommendation:
-    * Unit tests: backend endpoints (/predict, /predict_batch, /api/explain_files) using Flask test_client.
-    * Integration tests: end-to-end flow uploading a tiny CSV and verifying returned predictions + that explain files list is produced.
-    * Frontend: lightweight integration smoke test using Playwright / Selenium if desired to verify tab switching + form submits.
+Contract (back-end expectations):
+  POST /predict         -> { ok: bool, result: { prediction:int, probability:float, user_message:str, explanation_files:[{filename,mtime}] } }
+  POST /predict_batch   -> { ok: bool, result: { n_rows:int, n_positive:int, mean_probability:float,
+                                                 hist_bins:array, hist_counts:array,
+                                                 explanation_files:[{filename,mtime}] } }
+
+Notes:
+  - Each panel is self-contained (no global model info or global latest files).
+  - Artifact links include cache-busting query (?t=<mtime>).
+  - Friendly, non-technical user message displayed for single prediction.
 -->
 
 <!doctype html>
@@ -23,14 +22,16 @@ Notes / docstring:
   <meta charset="utf-8">
   <title>Diabetes Risk Prediction Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
 
   <style>
     body { padding-top: 1.5rem; background: #f7f8fa; }
-    .card { border-radius: 0.6rem; box-shadow: 0 6px 18px rgba(0,0,0,0.04); }
-    .section-title { font-weight:600; }
-    .small-muted { font-size:.9rem; color:#6c757d; }
+    .card { border-radius: .6rem; box-shadow: 0 6px 18px rgba(0,0,0,.05); }
+    .section-title { font-weight: 600; }
+    .small-muted { font-size: .92rem; color: #6c757d; }
+    .result-ok { color:#155724; }
+    .result-err { color:#721c24; }
   </style>
 </head>
 <body class="container">
@@ -38,17 +39,22 @@ Notes / docstring:
 
   <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">Quick single prediction</button>
+      <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab">
+        Quick single prediction
+      </button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">Batch CSV upload</button>
+      <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">
+        Batch CSV upload
+      </button>
     </li>
   </ul>
 
   <div class="tab-content">
-    <!-- Single prediction tab -->
+    <!-- ======================== TAB A — QUICK SINGLE PREDICTION ======================== -->
     <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
       <div class="row">
+        <!-- (a) Enter features -->
         <div class="col-md-6">
           <div class="card p-3">
             <div class="section-title mb-2">Enter features</div>
@@ -87,51 +93,55 @@ Notes / docstring:
                   <input name="Age" class="form-control" type="number" value="35" required>
                 </div>
               </div>
-
-              <!-- add Reset button next to Predict (inside form) -->
               <div class="mt-3 d-grid">
                 <div class="d-flex gap-2">
                   <button id="singleSubmit" class="btn btn-primary flex-grow-1">Predict</button>
                   <button id="singleReset" type="button" class="btn btn-outline-secondary">Reset</button>
                 </div>
               </div>
-
             </form>
           </div>
+        </div>
 
-          <div class="card mt-3 p-3" id="singleResultCard" style="display:none;">
-            <div class="section-title">Result</div>
+        <!-- (b) Results (with artifacts & timestamps) -->
+        <div class="col-md-6">
+          <div class="card p-3" id="singleResultCard" style="display:none;">
+            <div class="section-title">Results</div>
             <div id="singleUserMessage" class="mt-2"></div>
+
             <div class="mt-3">
-              <canvas id="singleProbChart" width="300" height="120"></canvas>
+              <canvas id="singleProbChart" width="340" height="130" aria-label="Probability chart"></canvas>
             </div>
+
             <div class="mt-3">
               <div class="section-title">Explainability artifacts</div>
               <ul id="singleFilesList" class="list-unstyled small-muted"></ul>
             </div>
-            <div class="mt-2 small-muted">This result is informational and not a medical diagnosis.</div>
+
+            <div class="mt-2 small-muted">
+              <em>Timestamp reflects when each artifact file was last modified on the server.</em>
+            </div>
           </div>
         </div>
 
-        <div class="col-md-6">
+        <!-- (c) Notes & guidance -->
+        <div class="col-12 mt-3">
           <div class="card p-3">
-            <div class="section-title">Model info</div>
-            <p class="small-muted mb-0">Model path: <strong id="modelPath">{{ model_path or "None found" }}</strong></p>
-            <pre id="metricsBlock" class="mt-2 small-muted">{{ metrics | tojson(indent=2) }}</pre>
-          </div>
-
-          <div class="card mt-3 p-3">
-            <div class="section-title">Latest explain files</div>
-            <p class="small-muted">Click to open in new tab. Images and HTML are served from <code>reports/explain/</code>.</p>
-            <ul id="explainList" class="list-unstyled small-muted"></ul>
+            <div class="section-title">Notes & guidance</div>
+            <ul class="small-muted mb-0">
+              <li>This is not a medical diagnosis. It’s an informational estimate to support your health awareness.</li>
+              <li>For personalised advice, please consult a medical professional.</li>
+              <li>Ensure the values you enter are realistic; unusual or extreme values may affect reliability.</li>
+            </ul>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Batch prediction tab -->
+    <!-- ======================== TAB B — BATCH CSV UPLOAD ======================== -->
     <div class="tab-pane fade" id="batch" role="tabpanel" aria-labelledby="batch-tab">
       <div class="row">
+        <!-- (a) Upload CSV -->
         <div class="col-md-6">
           <div class="card p-3">
             <div class="section-title mb-2">Upload CSV</div>
@@ -141,27 +151,40 @@ Notes / docstring:
                 <button class="btn btn-secondary">Upload & Predict</button>
               </div>
             </form>
-            <div class="small-muted mt-2">CSV should contain the feature columns (Outcome column will be ignored if present).</div>
+            <div class="small-muted mt-2">CSV should contain the feature columns (if an <code>Outcome</code> column is included, it will be ignored).</div>
           </div>
+        </div>
 
-          <div class="card mt-3 p-3" id="batchResultCard" style="display:none;">
+        <!-- (b) Batch summary (with artifacts & timestamps) -->
+        <div class="col-md-6">
+          <div class="card p-3" id="batchResultCard" style="display:none;">
             <div class="section-title">Batch summary</div>
             <div id="batchSummary" class="mt-2 small-muted"></div>
+
             <div class="mt-3">
-              <canvas id="batchHist" width="300" height="140"></canvas>
+              <canvas id="batchHist" width="340" height="140" aria-label="Batch histogram"></canvas>
             </div>
+
             <div class="mt-3">
               <div class="section-title">Generated artifacts</div>
               <ul id="batchFilesList" class="list-unstyled small-muted"></ul>
             </div>
+
+            <div class="mt-2 small-muted">
+              <em>Timestamps reflect when each artifact file was last modified on the server.</em>
+            </div>
           </div>
         </div>
 
-        <div class="col-md-6">
+        <!-- (c) Notes & guidance -->
+        <div class="col-12 mt-3">
           <div class="card p-3">
             <div class="section-title">Notes & guidance</div>
-            <p class="small-muted">Batch predictions are processed server-side. We will drop any Outcome column included by the CSV to avoid mismatches with the model.</p>
-            <p class="small-muted">Artifacts are saved under <code>reports/explain/</code> and listed here for inspection. No download button is provided — click files to view them.</p>
+            <ul class="small-muted mb-0">
+              <li>We remove any <code>Outcome</code> column before prediction to avoid leaking ground truth into the model.</li>
+              <li>Artifacts (e.g., SHAP plots) are saved under <code>reports/explain/</code>. Click file names to open them.</li>
+              <li>If the histogram looks empty, verify your CSV has valid numeric values for required features.</li>
+            </ul>
           </div>
         </div>
       </div>
@@ -169,138 +192,156 @@ Notes / docstring:
   </div>
 
 <script>
-  // Utility to render explain file lists from server response
-  async function refreshExplainList() {
-    try {
-      const res = await fetch('/api/explain_files');
-      if (!res.ok) return;
-      const payload = await res.json();
-      if (!payload.ok) return;
-      const list = payload.files || [];
-      const el = document.getElementById('explainList');
-      el.innerHTML = '';
-      list.forEach(f => {
-        const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
-        a.target = '_blank';
-        a.text = f.filename;
-        li.appendChild(a);
-        li.appendChild(document.createTextNode(` — ${new Date(f.mtime * 1000).toLocaleString()}`));
-        el.appendChild(li);
-      });
-    } catch (e) { console.error(e); }
-  }
-
-  // Single form handling
+  // ---------- Single prediction ----------
   document.getElementById('singleForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const form = new FormData(ev.target);
     const payload = {};
-    form.forEach((v,k) => payload[k] = Number(v) ? Number(v) : v);
+    form.forEach((v,k) => payload[k] = v === '' ? null : Number(v));
+
     try {
-      const res = await fetch('/predict', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+      const res = await fetch('/predict', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
       const json = await res.json();
+
       if (!json.ok) {
-        alert('Prediction error: ' + (json.error || 'unknown'));
+        const errMsg = json.error || 'Unknown error';
+        showSingleError('Prediction error: ' + errMsg);
         return;
       }
-      const r = json.result;
-      // show friendly message
+
+      const r = json.result || {};
+      const pct = r.probability != null ? Math.round(r.probability * 10000)/100 : null;
+
+      // Friendly message
       const msgEl = document.getElementById('singleUserMessage');
-      msgEl.innerHTML = `<strong>${r.user_message}</strong>`;
-      // show explain files
-      const fl = r.explanation_files || [];
-      const list = document.getElementById('singleFilesList'); list.innerHTML='';
-      fl.forEach(f => {
-        const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
-        a.target = '_blank';
-        a.text = f.filename;
-        li.appendChild(a);
-        list.appendChild(li);
-      });
-      // render probability chart
-      const pct = Math.round((r.probability||0) * 10000) / 100;
+      if (pct != null) {
+        msgEl.innerHTML =
+          `<p class="mb-1 result-ok"><strong>Based on the details you shared, our model estimates a <u>${pct}%</u> chance of diabetes risk.</strong></p>
+           <p class="mb-0 small-muted">This isn’t a medical diagnosis—please consult a clinician for personalised advice.</p>`;
+      } else {
+        msgEl.innerHTML = `<p class="result-err"><strong>We couldn’t compute a probability for this input.</strong></p>`;
+      }
+
+      // Chart
       const ctx = document.getElementById('singleProbChart').getContext('2d');
       if (window._singleChart) window._singleChart.destroy();
       window._singleChart = new Chart(ctx, {
         type: 'bar',
-        data: { labels:['Risk (%)'], datasets:[{ label:'Probability (%)', data:[pct], borderWidth:1 }] },
-        options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, max:100 } } }
+        data: {
+          labels: ['Risk (%)'],
+          datasets: [{ label: 'Probability (%)', data: [pct ?? 0], borderWidth: 1 }]
+        },
+        options: { indexAxis:'y', scales: { x: { beginAtZero: true, max: 100 } } }
       });
-      document.getElementById('singleResultCard').style.display='block';
-      refreshExplainList();
-    } catch (e) { alert('Request failed: '+e); console.error(e); }
+
+      // Artifact list (with timestamps)
+      const list = document.getElementById('singleFilesList'); list.innerHTML = '';
+      const files = Array.isArray(r.explanation_files) ? r.explanation_files : [];
+      files.forEach(f => {
+        const li = document.createElement('li');
+        const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : 'unknown time';
+        const a = document.createElement('a');
+        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime ?? Date.now()}`;
+        a.target = '_blank';
+        a.text = f.filename;
+        li.appendChild(a);
+        li.appendChild(document.createTextNode(` — ${when}`));
+        list.appendChild(li);
+      });
+
+      document.getElementById('singleResultCard').style.display = 'block';
+    } catch (e) {
+      showSingleError('Request failed: ' + e);
+      console.error(e);
+    }
   });
 
-  // Batch form: submit normally (server will return JSON or redirect); we intercept and handle JSON response
+  function showSingleError(msg) {
+    const msgEl = document.getElementById('singleUserMessage');
+    msgEl.innerHTML = `<p class="result-err"><strong>${msg}</strong></p>`;
+    document.getElementById('singleResultCard').style.display = 'block';
+    if (window._singleChart) try { window._singleChart.destroy(); } catch {}
+  }
+
+  // Reset button: restore defaults & hide result
+  document.getElementById('singleReset').addEventListener('click', () => {
+    const defaults = {
+      Pregnancies: 0, Glucose: 100, BloodPressure: 70, SkinThickness: 20,
+      Insulin: 85, BMI: 30.5, DiabetesPedigreeFunction: 0.5, Age: 35
+    };
+    const form = document.getElementById('singleForm');
+    Object.entries(defaults).forEach(([k, v]) => {
+      const el = form.elements.namedItem(k);
+      if (el) el.value = v;
+    });
+    const card = document.getElementById('singleResultCard');
+    if (card) card.style.display = 'none';
+    if (window._singleChart) try { window._singleChart.destroy(); } catch {}
+  });
+
+  // ---------- Batch prediction ----------
   document.getElementById('batchForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fileInput = document.getElementById('batchFile');
     if (!fileInput.files || !fileInput.files[0]) { alert('Please select a CSV file'); return; }
+
     const fd = new FormData();
     fd.append('file', fileInput.files[0]);
+
     try {
-      const res = await fetch('/predict_batch', { method:'POST', body: fd });
+      const res = await fetch('/predict_batch', { method: 'POST', body: fd });
       const json = await res.json();
+
       if (!json.ok) {
         alert('Batch error: ' + (json.error || 'unknown'));
         return;
       }
-      const r = json.result;
-      const summary = `Rows processed: ${r.n_rows}. Predicted positives: ${r.n_positive}. Average risk: ${(r.mean_probability*100).toFixed(2)}%.`;
+
+      const r = json.result || {};
+      const avg = r.mean_probability != null ? (r.mean_probability * 100).toFixed(2) : 'N/A';
+      const summary = `Rows processed: ${r.n_rows ?? 0}. Predicted positives: ${r.n_positive ?? 0}. Average risk: ${avg}%.`;
       document.getElementById('batchSummary').textContent = summary;
-      // histogram
+
+      // Chart (histogram)
+      const labels = Array.isArray(r.hist_bins) ? r.hist_bins : [];
+      const counts = Array.isArray(r.hist_counts) ? r.hist_counts : [];
       const ctx = document.getElementById('batchHist').getContext('2d');
       if (window._batchChart) window._batchChart.destroy();
       window._batchChart = new Chart(ctx, {
         type: 'bar',
-        data: { labels: r.hist_bins, datasets: [{ label:'Count', data: r.hist_counts }] },
-        options: {}
+        data: { labels: labels, datasets: [{ label: 'Count', data: counts, borderWidth: 1 }] },
+        options: { scales: { y: { beginAtZero: true } } }
       });
-      // show artifact list
-      const list = document.getElementById('batchFilesList'); list.innerHTML='';
-      (r.explanation_files || []).forEach(f=>{
+
+      // Artifact list (with timestamps)
+      const list = document.getElementById('batchFilesList'); list.innerHTML = '';
+      const files = Array.isArray(r.explanation_files) ? r.explanation_files : [];
+      files.forEach(f => {
         const li = document.createElement('li');
+        const when = f.mtime ? new Date(f.mtime * 1000).toLocaleString() : 'unknown time';
         const a = document.createElement('a');
-        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime}`;
-        a.target = '_blank'; a.text = f.filename;
+        a.href = `/reports/explain/${encodeURIComponent(f.filename)}?t=${f.mtime ?? Date.now()}`;
+        a.target = '_blank';
+        a.text = f.filename;
         li.appendChild(a);
+        li.appendChild(document.createTextNode(` — ${when}`));
         list.appendChild(li);
       });
-      document.getElementById('batchResultCard').style.display='block';
-      refreshExplainList();
-    } catch (e) { alert('Batch request failed: '+e); console.error(e); }
+
+      document.getElementById('batchResultCard').style.display = 'block';
+    } catch (e) {
+      alert('Batch request failed: ' + e);
+      console.error(e);
+    }
   });
-
-  // Single form: Reset button handler
-  // Reset form handler: restores sample defaults and hides result card
-document.getElementById('singleReset').addEventListener('click', () => {
-  const defaults = {
-    Pregnancies: 0, Glucose: 100, BloodPressure: 70, SkinThickness: 20,
-    Insulin: 85, BMI: 30.5, DiabetesPedigreeFunction: 0.5, Age: 35
-  };
-  const form = document.getElementById('singleForm');
-  Object.entries(defaults).forEach(([k, v]) => {
-    const el = form.elements.namedItem(k);
-    if (el) el.value = v;
-  });
-  // hide previous results
-  const resultCard = document.getElementById('singleResultCard');
-  if (resultCard) resultCard.style.display = 'none';
-  if (window._singleChart) { try { window._singleChart.destroy(); } catch (e) {} }
-});
-
-
-  // initial explain list
-  refreshExplainList();
-  setInterval(refreshExplainList, 30_000);
 </script>
 
-<!-- Bootstrap bundle (local or CDN fallback if missing) -->
-<script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+<!-- Local Bootstrap bundle (after content) -->
+ <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
 <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>
