@@ -301,31 +301,40 @@ class ModelWrapper:
                 prob_col = None
 
         # Build output DataFrame (keep original columns including Outcome if provided)
-        out = df.copy()
+        out = df.copy()  # keep original columns (including Outcome if present)
         out["prediction"] = np.asarray(preds).ravel().astype(int)
 
-        # Ensure probability column is a pandas Series of floats or NaNs
+        # Ensure probability column is a numeric Series (or NaNs)
         if prob_col is not None:
             prob_series = pd.Series(np.asarray(prob_col).astype(float), index=out.index)
             out["probability"] = prob_series
-            # compute mean skipping NaNs
-            try:
-                mean_prob = (
-                    float(np.nanmean(prob_series.values))
-                    if len(prob_series) > 0
-                    else None
-                )
-            except Exception:
-                mean_prob = None
         else:
-            # create NaN column so downstream code can always expect a numeric column
-            out["probability"] = pd.Series([np.nan] * len(out), index=out.index)
-            mean_prob = None
+            prob_series = pd.Series([np.nan] * len(out), index=out.index)
+            out["probability"] = prob_series
 
-        result = {
+        # Mean probability (skip NaNs)
+        mean_prob = (
+            float(np.nanmean(prob_series.values)) if prob_series.notna().any() else None
+        )
+
+        # 🔢 Compute a probability histogram on deciles [0.0..1.0]
+        # bins: 0.0, 0.1, 0.2, ..., 1.0  (10 bins)
+        valid_probs = prob_series.dropna().to_numpy()
+        bin_edges = np.linspace(0.0, 1.0, 11)  # 10 bins
+        counts = [0] * 10
+        if valid_probs.size > 0:
+            hist, _ = np.histogram(valid_probs, bins=bin_edges)
+            counts = hist.astype(int).tolist()
+
+        histogram = {
+            "bin_edges": bin_edges.tolist(),  # 11 edges
+            "counts": counts,  # 10 counts
+            "n_valid": int(valid_probs.size),
+        }
+
+        return {
             "n_rows": int(len(out)),
             "mean_probability": mean_prob,
-            "predictions": out,
-            "explanation_files": self._explain_files(),  # Include explanation files
+            "predictions": out,  # DataFrame (app route converts to records for JSON)
+            "histogram": histogram,  # 👈 added for the chart
         }
-        return result
