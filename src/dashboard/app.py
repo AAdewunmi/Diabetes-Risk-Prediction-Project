@@ -27,13 +27,10 @@ import pandas as pd
 from flask import (
     Flask,
     abort,
-    flash,
     jsonify,
-    redirect,
     render_template,
     request,
     send_from_directory,
-    url_for,
 )
 from werkzeug.utils import secure_filename
 
@@ -163,58 +160,78 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# 📍 Replace ONLY the /predict_batch route function with the version below
+# (keeps the URL the same and returns histogram + JSON-serializable predictions)
+
+
 @app.route("/predict_batch", methods=["POST"])
 def predict_batch_route():
     """
-    Flask route to accept a CSV upload and return batch predictions as JSON.
-    Keeps route at /predict_batch so existing clients/tests are unaffected.
-    The function name is changed to avoid a name collision with ModelWrapper.predict_batch.
+    Accept CSV upload and return JSON:
+    {
+      ok: True,
+      result: {
+        n_rows: int,
+        mean_probability: float | null,
+        histogram: { bin_edges: [..], counts: [..], n_valid: int },
+        predictions: [{...}]   # records with 'prediction' and 'probability'
+      },
+      model_info: {...}
+    }
     """
     if "file" not in request.files:
-        flash("No file part")
-        return redirect(url_for("index"))
+        return jsonify({"ok": False, "error": "No file part"}), 400
+
     file = request.files["file"]
     if file.filename == "":
-        flash("No selected file")
-        return redirect(url_for("index"))
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(save_path)
-        try:
-            df = pd.read_csv(save_path)
-        except Exception as e:
-            flash(f"Uploaded file is not a valid CSV: {e}")
-            return redirect(url_for("index"))
-        try:
-            wrapper = load_wrapper(None)
-            # returns dict with DataFrame in res['predictions'] and explanation_files
-            res = wrapper.predict_batch(df)
-            # Return JSON: n_rows, mean_probability, predictions (records), and explanation_files
-            # Convert DataFrame -> dict (records) for JSON serialization
-            preds_df = res.get("predictions")
-            preds_records = (
-                preds_df.to_dict(orient="records") if preds_df is not None else []
-            )
-            return jsonify(
+        return jsonify({"ok": False, "error": "No selected file"}), 400
+    if not allowed_file(file.filename):
+        return jsonify({"ok": False, "error": "Invalid file type. CSV only."}), 400
+
+    filename = secure_filename(file.filename)
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    file.save(save_path)
+
+    try:
+        df = pd.read_csv(save_path)
+    except Exception as e:
+        return (
+            jsonify({"ok": False, "error": f"Uploaded file is not a valid CSV: {e}"}),
+            400,
+        )
+
+    try:
+        wrapper = load_wrapper(None)
+        res = wrapper.predict_batch(df)  # dict with DataFrame in res['predictions']
+
+        preds_df = res.get("predictions")
+        preds_records = (
+            preds_df.to_dict(orient="records") if preds_df is not None else []
+        )
+
+        # Return JSON with histogram for the client-side chart
+        return (
+            jsonify(
                 {
                     "ok": True,
                     "result": {
                         "n_rows": res.get("n_rows"),
                         "mean_probability": res.get("mean_probability"),
+                        "histogram": res.get(
+                            "histogram", {"bin_edges": [], "counts": [], "n_valid": 0}
+                        ),
                         "predictions": preds_records,
-                        "explanation_files": res.get("explanation_files"),
                     },
                     "model_info": wrapper.get_model_info(),
                 }
-            )
-        except Exception as e:
-            app.logger.exception("Batch prediction failed")
-            flash(f"Batch prediction failed: {e}")
-            return redirect(url_for("index"))
-    else:
-        flash("Invalid file type. CSV only.")
-        return redirect(url_for("index"))
+            ),
+            200,
+        )
+
+    except Exception as e:
+        app.logger.exception("Batch prediction failed")
+        return jsonify({"ok": False, "error": f"Batch prediction failed: {e}"}), 500
 
 
 if __name__ == "__main__":

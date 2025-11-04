@@ -317,7 +317,7 @@ class ModelWrapper:
             float(np.nanmean(prob_series.values)) if prob_series.notna().any() else None
         )
 
-        # 🔢 Compute a probability histogram on deciles [0.0..1.0]
+        # Compute a probability histogram on deciles [0.0..1.0]
         # bins: 0.0, 0.1, 0.2, ..., 1.0  (10 bins)
         valid_probs = prob_series.dropna().to_numpy()
         bin_edges = np.linspace(0.0, 1.0, 11)  # 10 bins
@@ -336,5 +336,5 @@ class ModelWrapper:
             "n_rows": int(len(out)),
             "mean_probability": mean_prob,
             "predictions": out,  # DataFrame (app route converts to records for JSON)
-            "histogram": histogram,  # 👈 added for the chart
+            "histogram": histogram,  # added for the chart
         }
