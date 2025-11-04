@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diabetes-dashboard"
+version = "0.1.0"
+description = "Flask dashboard for Diabetes Risk Prediction"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312", "py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+src_paths = ["src", "tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I"]
+# We keep imports at top, so no need to ignore E402 now.
+exclude = [
+  ".venv",
+  "venv",
+  "build",
+  "dist",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+filterwarnings = [
+  "ignore::FutureWarning:sklearn.*",
+  "ignore:.*errors='ignore'.*:FutureWarning",
+]
