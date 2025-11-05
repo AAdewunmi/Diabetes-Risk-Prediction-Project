@@ -1,0 +1,23 @@
+# --- Ensure Python is counted correctly ---
+*.py linguist-language=Python
+
+# --- De-emphasize templates, static assets, and generated artifacts ---
+# Treat UI templates and static assets as vendored (excluded from language stats)
+src/templates/** linguist-vendored
+src/static/** linguist-vendored
+
+# Generated explainability/artifact outputs (e.g., SHAP HTML/PNGs)
+reports/explain/** linguist-vendored
+reports/metrics/** linguist-vendored
+
+# Notebooks and their checkpoints tend to skew byte counts heavily
+*.ipynb linguist-vendored
+**/.ipynb_checkpoints/** linguist-vendored
+notebooks/** linguist-vendored
+
+# Common HTML artifacts from reports/evals (targeted, not global)
+reports/**/*.html linguist-vendored
+
+# Optional: treat CSVs and images in reports as vendored, too
+reports/**/*.csv linguist-vendored
+reports/**/*.{png,jpg,jpeg,svg} linguist-vendored
