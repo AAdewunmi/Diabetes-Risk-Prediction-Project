@@ -1,202 +1,216 @@
-# UNDER CONSTRUCTION
+#  Diabetes Risk Prediction Project
 
------
+> **A full end-to-end machine learning and Flask web application that predicts diabetes risk and visualises explainability insights for individual or batch predictions.**
+> Built with **Python, scikit-learn, pandas, SHAP**, and **Flask**, this project demonstrates both **data science excellence** and **software engineering maturity** — from raw data ingestion to interactive model deployment.
+>
+> ⚙️ **Two integrated components:**
+>
+> 1. **End-to-End Machine Learning Pipeline** — data processing → training → evaluation → explainability.
+> 2. **Interactive Flask Dashboard** — real-time single & batch prediction app powered by the trained model.
 
-# 🩺 Diabetes Risk Prediction Project: End-to-End Pipeline & Web Dashboard
+---
 
-This repository contains an end-to-end data science project focused on predicting the risk of diabetes from medical features. It includes the **full machine learning pipeline** (data loading, cleaning, training, evaluation, explainability) and a companion **Flask Web Dashboard** for live predictions.
+##  Highlights
 
-## 🎯 Objective
+* **Automated ML Pipeline:** Modular scripts for loading, preprocessing, EDA, training, evaluation, and model explainability.
+* **Interactive Web Dashboard:** Built with Flask + Bootstrap + Chart.js, for clinicians and analysts to interactively explore model predictions.
+* **Explainability:** Integrated SHAP/LIME interpretability tools, visualising local and global feature contributions.
+* **Production-ready structure:** Logging, testing, CI, and pre-commit hooks aligned with professional ML engineering standards.
+* **Collaborative foundation:** Code documented with Javadoc-style docstrings, pytest coverage, and a clean file architecture.
 
-The primary goal is to **build and deploy a robust machine learning model** (Logistic Regression, Random Forest, etc.) that accurately predicts the onset of diabetes based on medical features (e.g., Age, Glucose, BMI). The secondary goal is to serve this model via a simple, functional web interface to assist healthcare professionals in identifying high-risk individuals for early intervention.
+---
 
-## 💻 Overview: Pipeline & Dashboard
-
-The project is split into two core components:
-
-1.  **Data Science Pipeline (`src/`):** A modular workflow for data preparation, model training, evaluation, and interpretability. The master script for this is `main.py`.
-2.  **Flask Dashboard (`src/dashboard/`):** A lightweight web application that loads a pre-trained model artifact and provides a user interface for real-time risk prediction.
-
------
-
-## 📂 Repository Structure
+##  Project Architecture
 
 ```
-diabetes_risk_prediction_project/
-├── data/
-│   └── diabetes.csv
-├── models/
-│   └── diabetes_prediction_model.joblib # Trained models saved here
-├── reports/
-│   ├── bmi_distribution_by_outcome.png
-│   ├── ... (logs, plots, evaluation results)
+Diabetes-Risk-Prediction-Project/
+├── data/                          # raw dataset (diabetes.csv)
+├── models/                        # saved ML models (.joblib)
+├── reports/                       # generated plots, explainability & metrics
+│   ├── explain/                   # SHAP/LIME visual outputs
+│   ├── models/                    # trained model artifacts
+│   └── figures/                   # EDA & evaluation plots
 ├── src/
-│   ├── data_loading.py
-│   ├── data_processing.py
-│   ├── data_exploration.py
-│   ├── ... (other pipeline scripts)
-│   └── dashboard/
-│       ├── app.py # Flask application entry
-│       └── predict.py # Model prediction logic
-├── .gitignore
-├── LICENCE
-├── **main.py** # Runs the end-to-end ML pipeline
-└── requirements.txt
+│   ├── data_loading.py
+│   ├── data_processing.py
+│   ├── data_exploration.py
+│   ├── data_visualisation.py
+│   ├── statistical_analysis.py
+│   ├── model_training.py
+│   ├── model_evaluation.py
+│   └── dashboard/                 # Flask dashboard app
+│       ├── app.py
+│       ├── predict.py
+│       ├── routes.py
+│       ├── templates/
+│       │   └── index.html
+│       └── static/
+├── tests/                         # unit, integration, and dashboard tests
+├── main.py                        # unified pipeline runner
+├── requirements.txt
+├── pyproject.toml
+└── README.md
 ```
 
------
+---
 
-## 🛠️ Getting Started
+##  Part 1 — End-to-End Machine Learning Pipeline
 
-### 1\. Initial Setup
+This component implements a **complete data science workflow** — from ingestion to explainability — using the Pima Indians Diabetes dataset.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/AAdewunmi/Diabetes-Risk-Prediction-Project.git
-    cd Diabetes-Risk-Prediction-Project
-    ```
-2.  **Create and activate a virtual environment (macOS/Linux):**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate # On Windows: venv\Scripts\activate
-    ```
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    # Include SHAP/LIME if you want model explainability support
-    pip install shap lime
-    ```
-4.  **Place the Dataset:**
-    Download the `diabetes.csv` file (likely the Pima Indians Diabetes Dataset) and place it in the **`data/`** directory.
+### ⚙️ Workflow Overview
 
-### 2\. Running the Data Science Pipeline
+1. **Data Loading:**
+   Load `data/diabetes.csv` into pandas and validate structure.
+   `python src/data_loading.py --data ./data/diabetes.csv`
 
-Execute the full pipeline to train a model and generate reports:
+2. **Data Preprocessing:**
+   Handle missing values, normalize numerical features, and encode categorical variables.
+   `python src/data_processing.py --data ./data/diabetes.csv --out reports`
+
+3. **Exploratory Data Analysis (EDA):**
+   Generate descriptive statistics, correlations, and visualizations (BMI, glucose, etc.).
+   `python src/data_exploration.py --data ./data/diabetes.csv --out reports`
+
+4. **Statistical Analysis:**
+   Run hypothesis tests and feature significance analysis.
+   `python src/statistical_analysis.py --data ./data/diabetes.csv --out reports`
+
+5. **Model Training:**
+   Train Logistic Regression, Random Forest, Gradient Boosting, or XGBoost models.
+   Save the best model to `reports/models/`.
+
+   ```bash
+   python src/model_training.py --data ./data/diabetes.csv --model rf --out_dir reports
+   ```
+
+6. **Model Evaluation:**
+   Evaluate accuracy, ROC AUC, and confusion matrix; save plots.
+   `python src/model_evaluation.py --model reports/models/rf_best.joblib --out reports`
+
+7. **Explainability & Feature Importance:**
+   Generate SHAP plots and local explanations stored under `reports/explain/`.
+
+8. **Run Entire Pipeline Automatically:**
+
+   ```bash
+   python main.py
+   ```
+
+---
+
+##  Part 2 — Flask Web Application (Dashboard)
+
+An interactive dashboard that loads the trained model from `reports/models/` and enables both **single** and **batch** predictions.
+
+###  Quickstart (Local Run)
 
 ```bash
-python main.py
+# 1. From the repo root
+python -m pip install -r requirements.txt
+
+# 2. Run the Flask app
+PYTHONPATH=src python src/dashboard/app.py
+
+# 3. Visit
+http://127.0.0.1:5000
 ```
 
-  * This script performs all steps: data loading, processing, EDA, training (default model is Logistic Regression), and evaluation.
-  * The trained model artifact (e.g., `logreg_best.joblib`) will be saved in the **`models/`** directory.
-  * Plots and log files will be saved in the **`reports/`** directory.
-
-#### Customizing Model Training
-
-You can specify a different model for training using the `--model` CLI flag in `src/model_training.py`.
-
-| Option | Model | Artifact Saved As |
-| :--- | :--- | :--- |
-| `logreg` | Logistic Regression (Default baseline) | `logreg_best.joblib` |
-| `rf` | Random Forest Classifier | `rf_best.joblib` |
-| `gb` | Gradient Boosting | `gb_best.joblib` |
-| `xgb` | XGBoost (requires `xgboost` package) | `xgb_best.joblib` |
-
-**Example (Training Gradient Boosting):**
+or explicitly specify a model path:
 
 ```bash
-python src/model_training.py --data data/diabetes.csv --model gb --out_dir reports
+python src/dashboard/app.py --model reports/models/rf_best.joblib
 ```
 
-### 3\. Running the Flask Dashboard (Web App)
+###  Features
 
-Once a model has been trained and saved in `models/`, you can launch the prediction dashboard:
+| Panel                       | Description                                                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Quick Single Prediction** | Enter medical features manually → get predicted probability and SHAP explanation.                                                 |
+| **Batch CSV Upload**        | Upload a `.csv` file with multiple patients → get batch summary, visualized histogram, and downloadable explainability artifacts. |
+| **Notes & Guidance**        | Practical interpretation guide for clinicians and data scientists.                                                                |
 
-1.  **Run locally (development):**
-    ```bash
-    # Ensure you are in the project root
-    python src/dashboard/app.py --host 0.0.0.0 --port 5000
-    ```
-2.  **Access the Dashboard:** Open your browser to **[http://127.0.0.1:5000](http://127.0.0.1:5000)**.
+All predictions, explanations, and generated files are timestamped and stored in `reports/explain/`.
 
-<!-- end list -->
+---
 
-  * By default, the dashboard tries to load the first available model artifact in the `models/` directory.
-  * You can explicitly specify a model path:
-    ```bash
-    python src/dashboard/app.py --model models/gb_best.joblib
-    ```
+##  Testing Strategy
 
------
+Run tests locally before pushing:
 
-## ⚙️ Data Science Workflow
+```bash
+PYTHONPATH=src pytest -q
+```
 
-The project follows a structured and modular workflow for end-to-end machine learning pipeline development:
+The repository includes:
 
-### 1\. **Data Loading**
+* **Unit tests:** For `ModelWrapper`, preprocessing, and data loaders.
+* **API tests:** Flask routes and endpoints (`/predict`, `/predict_batch`).
+* **Integration tests:** Pipeline execution to ensure end-to-end consistency.
 
-  * Source: [Kaggle – Diabetes Health Indicators Dataset (or similar)](https://www.kaggle.com/datasets/aaron7sun/diabetes-health-indicators-dataset)
-  * Loaded using `pandas` via `src/data_loading.py`.
+CI/CD integration (via GitHub Actions) ensures tests run automatically on every push.
 
-### 2\. **Data Preprocessing**
+---
 
-  * Missing values removed or imputed.
-  * Categorical variables encoded using one-hot encoding.
-  * Data normalization/standardization where appropriate.
-  * Implemented in `src/data_processing.py`.
+##  Technologies Used
 
-### 3\. **Exploratory Data Analysis (EDA)**
+* **Language:** Python 3.11+
+* **Core Libraries:** pandas, numpy, scikit-learn, joblib, shap, matplotlib, seaborn
+* **Web Framework:** Flask + Bootstrap + Chart.js
+* **Testing:** pytest, pre-commit, black, isort, ruff
+* **Tools:** VS Code, GitHub Actions CI, pre-commit hooks, reportlab for PDF export
 
-  * Exploratory data analysis (EDA) using `pandas`, `matplotlib`, and `seaborn` in `src/data_exploration.py`.
-  * Extended statistical tests using `pandas`, `scipy`, and `numpy` in `src/statistical_analysis.py`.
+---
 
-### 4\. **Model Training**
+##  Outputs
 
-  * Data split into training and validation sets.
-  * Chosen classifier trained with cross-validation.
-  * Model saved using `joblib` in the `models/` directory.
-  * Handled in `src/model_training.py`.
+| Folder             | Description                             |
+| ------------------ | --------------------------------------- |
+| `reports/models/`  | Trained model artifacts (`.joblib`)     |
+| `reports/explain/` | SHAP local & global explanations        |
+| `reports/`         | EDA visuals, evaluation plots, and logs |
+| `data/`            | Input dataset (`diabetes.csv`)          |
+| `tests/`           | Pytest suite                            |
 
-### 5\. **Model Evaluation**
+---
 
-  * Evaluated using classification report, ROC AUC score, and confusion matrix.
-  * Results printed and visualised in `src/model_evaluation.py`.
+##  Deployment Notes
 
-### 6\. **Model Explainability & Interpretability 💡**
+For production:
 
-  * **Objective:** To understand **why** the model makes a particular prediction, crucial for healthcare applications.
-  * **Techniques:** **SHAP (SHapley Additive exPlanations)** and **LIME (Local Interpretable Model-agnostic Explanations)** are used to provide global feature importance and local, per-prediction reasoning.
-  * **Output:** Explanatory plots (force plots, summary plots, etc.) are generated and saved under `reports/`.
+* Replace `app.secret_key` with an environment variable.
+* Serve via **Gunicorn** or **Waitress** instead of Flask’s dev server.
+* Mount static files via Nginx.
+* Optionally containerize using Docker with health checks.
 
-### 7\. **Feature Importance Analysis**
+---
 
-  * Extracted from the trained model (e.g., coefficients for LogReg, feature importances for RF/GB).
-  * Top features visualized using bar plots via `src/data_visualisation.py`.
+##  Example Use Case
 
-### 8\. **Data Science (End-To-End) Pipeline 🔄**
+This dashboard enables **clinicians** or **data scientists** to:
 
-  * **Master Script:** The entire sequence of steps is executed via the central script, **`main.py`**.
-  * **Automation:** Ensures **reproducibility** by running all components sequentially and generating logs.
-  * **Integration:** The final saved model artifact (`models/*.joblib`) serves as the input dependency for the Flask Dashboard.
+* Instantly assess diabetes risk for new patients.
+* Interpret which medical features contribute most to the prediction.
+* Batch-evaluate risk profiles for large datasets.
+* Export explainability artifacts (HTML/PNG) for audit and reporting.
 
------
+---
 
-## 🧪 Testing Strategy
+##  Acknowledgements
 
-A combination of unit and API tests ensures code reliability:
+Special thanks to:
 
-  * **Unit Tests:** For small, pure logic functions (e.g., data preprocessing helpers, model wrapper class in `src/dashboard/predict.py`).
-  * **API Tests:** Using the Flask `test_client` to verify that web application endpoints respond correctly and return valid predictions.
-  * **Running Tests:**
-    ```bash
-    pytest -q
-    ```
+* **The National Institute of Diabetes and Digestive and Kidney Diseases** — for the original dataset.
+* **OpenAI’s ChatGPT (GPT-5)** — for advanced assistance in refactoring, debugging, and structuring production-ready code, documentation, and CI integration.
+* The open-source community for continuous innovation in Python, Flask, and ML tooling.
 
-## 🔐 Best Practices & Security Notes (Dashboard)
+---
 
-  * **Secrets:** Replace the placeholder `app.secret_key` with a real secret key using an environment variable in production deployments.
-  * **Model Path Control:** Carefully validate the model file path to prevent arbitrary file system access.
-  * **Input Validation:** Implement robust validation (e.g., using `pydantic`) on all form inputs to ensure features fall within expected clinical and statistical ranges before passing them to the model.
-  * **Containerization:** A Dockerfile and healthcheck are recommended for production deployment environments (e.g., using Gunicorn/Waitress).
+##  Author
 
-## 🤝 Collaboration and Contact
+**Adrian Adewunmi**
 
-The project is open to contributions. Feel free to **open an issue** or submit a **pull request** for bug fixes or new features.
-
-| Role | Author |
-| :--- | :--- |
-| **Author** | AAdewunmi (via GitHub: `https://github.com/AAdewunmi`) |
-| **Contact** | Open an issue on the GitHub repository for questions or suggestions. |
+[GitHub](https://github.com/AAdewunmi)  
 
 -----
 
