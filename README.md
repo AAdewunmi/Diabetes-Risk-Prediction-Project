@@ -134,6 +134,26 @@ All predictions, explanations, and generated files are timestamped and stored in
 
 ---
 
+### Screenshots
+
+- Single Prediction No Data
+
+<img width="1229" height="706" alt="Image" src="https://github.com/user-attachments/assets/ba962511-77e9-408c-b625-2c30cf7da3cf" />
+
+- Single Prediction With Data
+
+<img width="1106" height="842" alt="Image" src="https://github.com/user-attachments/assets/208dc36f-ff58-4974-8db8-e8b3cdcd87c8" />
+
+- Batch Prediction No Data
+
+<img width="1197" height="482" alt="Image" src="https://github.com/user-attachments/assets/c9d97306-bf07-422f-b09d-f1f14f4639aa" />
+
+- Batch Prediction With Data
+
+<img width="1110" height="797" alt="Image" src="https://github.com/user-attachments/assets/bb4a45a8-7fc0-4ef7-aa83-3fc72d5d3ec4" />
+
+---
+
 ##  Testing Strategy
 
 Run tests locally before pushing:
