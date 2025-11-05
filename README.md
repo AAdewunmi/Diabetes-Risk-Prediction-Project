@@ -230,7 +230,7 @@ Special thanks to:
 
 **Adrian Adewunmi**
 
-[GitHub](https://github.com/AAdewunmi)  
+[GitHub](https://github.com/AAdewunmi)
 
 -----
 
