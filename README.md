@@ -1,4 +1,4 @@
-#  Diabetes Risk Prediction Project
+#  Diabetes Risk Prediction: An End-to-End Machine Learning System with a Flask Web App
 
 > **A full end-to-end machine learning and Flask web application that predicts diabetes risk and visualises explainability insights for individual or batch predictions.**
 > Built with **Python, scikit-learn, pandas, SHAP**, and **Flask**, this project demonstrates both **data science excellence** and **software engineering maturity** — from raw data ingestion to interactive model deployment.
