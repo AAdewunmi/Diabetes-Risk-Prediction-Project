@@ -220,8 +220,7 @@ This dashboard enables **clinicians** or **data scientists** to:
 
 Special thanks to:
 
-* **The National Institute of Diabetes and Digestive and Kidney Diseases** — for the original dataset.
-* **OpenAI’s ChatGPT (GPT-5)** — for advanced assistance in refactoring, debugging, and structuring production-ready code, documentation, and CI integration.
+* **The National Institute of Diabetes and Digestive and Kidney Diseases** for the original dataset.
 * The open-source community for continuous innovation in Python, Flask, and ML tooling.
 
 ---
@@ -234,6 +233,6 @@ Special thanks to:
 
 -----
 
-## 📄 License
+## License
 
 [MIT License](LICENSE)
